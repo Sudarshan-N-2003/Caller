@@ -1,16 +1,26 @@
 <?php
-// includes/config.php
-// Neon PostgreSQL Connection — supports .env file (local) or env vars (production)
 
-// ── Load .env file if present (local dev) ────────────────────────────────────
+// Show errors temporarily for debugging (remove later in production)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// ─────────────────────────────────────────────
+// Load .env (for local development only)
+// ─────────────────────────────────────────────
 $envFile = dirname(__DIR__) . '/.env';
+
 if (file_exists($envFile)) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         $line = trim($line);
         if ($line === '' || $line[0] === '#') continue;
-        if (strpos($line, '=') === false) continue;
-        [$key, $value] = array_map('trim', explode('=', $line, 2));
+        if (!str_contains($line, '=')) continue;
+
+        [$key, $value] = explode('=', $line, 2);
+        $key = trim($key);
+        $value = trim($value);
+
         if (!getenv($key)) {
             putenv("$key=$value");
             $_ENV[$key] = $value;
@@ -18,20 +28,28 @@ if (file_exists($envFile)) {
     }
 }
 
-// ── Database ──────────────────────────────────────────────────────────────────
-define('DB_HOST', getenv('DB_HOST') ?: 'your-neon-endpoint.neon.tech');
-define('DB_PORT', getenv('DB_PORT') ?: '5432');
-define('DB_NAME', getenv('DB_NAME') ?: 'neondb');
-define('DB_USER', getenv('DB_USER') ?: 'neondb_owner');
-define('DB_PASS', getenv('DB_PASS') ?: '');
+// ─────────────────────────────────────────────
+// Database Configuration (NO FAKE DEFAULTS)
+// ─────────────────────────────────────────────
+$required = ['DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASS'];
 
-// ── App ───────────────────────────────────────────────────────────────────────
-define('APP_NAME', getenv('APP_NAME') ?: 'AdmissionConnect');
+foreach ($required as $var) {
+    if (!getenv($var)) {
+        die("Missing required environment variable: $var");
+    }
+}
 
-// Detect base URL automatically — works on Render, Docker, localhost
+define('DB_HOST', getenv('DB_HOST'));
+define('DB_PORT', getenv('DB_PORT'));
+define('DB_NAME', getenv('DB_NAME'));
+define('DB_USER', getenv('DB_USER'));
+define('DB_PASS', getenv('DB_PASS'));
+
+// ─────────────────────────────────────────────
+// Base URL
+// ─────────────────────────────────────────────
 function getBaseUrl(): string {
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    // Render sets X-Forwarded-Proto
     if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
         $scheme = $_SERVER['HTTP_X_FORWARDED_PROTO'];
     }
@@ -41,14 +59,18 @@ function getBaseUrl(): string {
 
 define('BASE_URL', getenv('APP_URL') ?: getBaseUrl());
 
-// ── Database connection ───────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Database Connection
+// ─────────────────────────────────────────────
 function getDB(): PDO {
     static $pdo = null;
+
     if ($pdo === null) {
         $dsn = sprintf(
             'pgsql:host=%s;port=%s;dbname=%s;sslmode=require',
             DB_HOST, DB_PORT, DB_NAME
         );
+
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -56,16 +78,16 @@ function getDB(): PDO {
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ]);
         } catch (PDOException $e) {
-            http_response_code(500);
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'Database connection failed. Check DB credentials.']);
-            exit;
+            die("Database connection failed: " . $e->getMessage());
         }
     }
+
     return $pdo;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
 function jsonResponse(array $data, int $code = 200): void {
     http_response_code($code);
     header('Content-Type: application/json');
@@ -74,6 +96,9 @@ function jsonResponse(array $data, int $code = 200): void {
 }
 
 function authRequired(): array {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     if (empty($_SESSION['user_id'])) {
         jsonResponse(['error' => 'Unauthorized'], 401);
     }
@@ -82,7 +107,7 @@ function authRequired(): array {
 
 function adminRequired(): array {
     $session = authRequired();
-    if ($session['role'] !== 'admin') {
+    if (($session['role'] ?? '') !== 'admin') {
         jsonResponse(['error' => 'Forbidden'], 403);
     }
     return $session;
