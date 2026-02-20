@@ -639,23 +639,53 @@ async function doLogout() {
 
 // ─── DASHBOARD ────────────────────────────────────────────
 async function loadDashboard() {
+  const statsEl = document.getElementById('tc-grid');
+  statsEl.innerHTML = '<div style="color:var(--muted);padding:2rem;text-align:center">⏳ Loading...</div>';
+  
   try {
-    const [summary, tcStats] = await Promise.all([
-      fetch(BASE + '/api/students.php?action=summary').then(r=>r.json()),
-      fetch(BASE + '/api/users.php?action=stats').then(r=>r.json())
+    // Add 10 second timeout
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000)
+    );
+    
+    const [summary, tcStats] = await Promise.race([
+      Promise.all([
+        fetch(BASE + '/api/students.php?action=summary').then(r=>r.json()),
+        fetch(BASE + '/api/users.php?action=stats').then(r=>r.json())
+      ]),
+      timeout
     ]);
-    document.getElementById('s-total').textContent     = summary.total     || 0;
-    document.getElementById('s-accepted').textContent  = summary.accepted  || 0;
-    document.getElementById('s-rejected').textContent  = summary.rejected  || 0;
-    document.getElementById('s-pending').textContent   = summary.pending   || 0;
-    document.getElementById('s-callback').textContent  = summary.callback  || 0;
-    document.getElementById('s-unassigned').textContent= summary.unassigned|| 0;
+    
+    // Check if response is an error
+    if (summary.error) {
+      console.error('Summary error:', summary.error);
+      document.getElementById('s-total').textContent = '—';
+      document.getElementById('s-accepted').textContent = '—';
+      document.getElementById('s-rejected').textContent = '—';
+      document.getElementById('s-pending').textContent = '—';
+      document.getElementById('s-callback').textContent = '—';
+      document.getElementById('s-unassigned').textContent = '—';
+    } else {
+      document.getElementById('s-total').textContent     = summary.total     || 0;
+      document.getElementById('s-accepted').textContent  = summary.accepted  || 0;
+      document.getElementById('s-rejected').textContent  = summary.rejected  || 0;
+      document.getElementById('s-pending').textContent   = summary.pending   || 0;
+      document.getElementById('s-callback').textContent  = summary.callback  || 0;
+      document.getElementById('s-unassigned').textContent= summary.unassigned|| 0;
+    }
 
     const grid = document.getElementById('tc-grid');
-    if (!tcStats.length) {
-      grid.innerHTML = '<div class="empty-state"><div class="ico">👥</div><p>No telecallers yet</p></div>';
+    
+    if (tcStats.error) {
+      grid.innerHTML = `<div style="color:var(--danger);padding:2rem;text-align:center">❌ Error loading telecallers: ${esc(tcStats.error)}</div>`;
       return;
     }
+    
+    if (!tcStats.length) {
+      grid.innerHTML = '<div class="empty-state"><div class="ico">👥</div><p>No telecallers yet. Add users with "Telecaller" role first.</p></div>';
+      return;
+    }
+    
     grid.innerHTML = tcStats.map(tc => {
       const total    = parseInt(tc.total_assigned)||0;
       const accepted = parseInt(tc.accepted)||0;
@@ -679,7 +709,16 @@ async function loadDashboard() {
         <div style="font-size:.72rem;color:var(--muted);margin-top:.3rem">${pct}% acceptance rate</div>
       </div>`;
     }).join('');
-  } catch(e) { console.error(e); }
+  } catch(e) { 
+    console.error('Dashboard load error:', e);
+    const grid = document.getElementById('tc-grid');
+    grid.innerHTML = `<div style="color:var(--danger);padding:2rem;text-align:center">
+      ❌ Failed to load dashboard<br>
+      <span style="font-size:.85rem;color:var(--muted);margin-top:.5rem;display:block">${esc(e.message)}</span>
+      <button class="btn btn-outline btn-sm" onclick="loadDashboard()" style="margin-top:1rem">🔄 Retry</button>
+    </div>`;
+  }
+}
 }
 
 async function viewTcStudents(tcId, tcName) {
