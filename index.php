@@ -32,9 +32,12 @@ if (!empty($_SESSION['user_id'])) {
 html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
 body{display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
 body::before{
-  content:'';position:fixed;inset:0;
+  content:'';
+  position:fixed;
+  inset:0;
   background:radial-gradient(ellipse 80% 60% at 20% 30%,rgba(59,130,246,.12) 0%,transparent 60%),
              radial-gradient(ellipse 60% 80% at 80% 70%,rgba(6,182,212,.08) 0%,transparent 60%);
+  pointer-events: none;
 }
 .login-wrap{width:100%;max-width:420px;padding:1rem}
 .brand{text-align:center;margin-bottom:2rem}
