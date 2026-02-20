@@ -58,16 +58,23 @@ CREATE INDEX IF NOT EXISTS idx_feedback_student ON feedback(student_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_telecaller ON feedback(telecaller_id);
 CREATE INDEX IF NOT EXISTS idx_reminders_date ON reminders(reminder_date, telecaller_id);
 
--- Default admin user (password: Admin@123 - will be changed on first login)
-INSERT INTO users (name, email, phone, gender, dob, role, password_hash, system_password, is_first_login)
-VALUES (
-    'Super Admin',
-    'admin@college.com',
-    '9999999999',
-    'Other',
-    '1990-01-01',
-    'admin',
-    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-    'Admin@123',
-    FALSE
-) ON CONFLICT (email) DO NOTHING;
+-- ════════════════════════════════════════════════════════════════════════════
+--  ADMIN USER CREATION
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  After running this schema, create the default admin user by running:
+--
+--    METHOD 1 (Command line):
+--      php setup_admin.php
+--
+--    METHOD 2 (Browser):
+--      https://your-app.onrender.com/setup_admin.php
+--
+--  Default credentials:
+--    Email:    admin@college.com
+--    Password: Admin@123
+--
+--  ⚠️  Change the password immediately after first login!
+--
+-- ════════════════════════════════════════════════════════════════════════════
+

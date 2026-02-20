@@ -18,6 +18,8 @@ $action = $_GET['action'] ?? '';
 
 switch ($action) {
     case 'add':          addStudent(); break;
+    case 'bulk_add':     bulkAddStudents(); break;
+    case 'parse_excel':  parseExcel(); break;
     case 'list':         listStudents(); break;
     case 'my_list':      myStudentList(); break;
     case 'detail':       studentDetail(); break;
@@ -243,4 +245,122 @@ function summaryStats() {
          FROM students"
     );
     jsonResponse($stmt->fetch());
+}
+
+function bulkAddStudents() {
+    if (!in_array($_SESSION['role'], ['admin','office'])) {
+        jsonResponse(['error' => 'Forbidden'], 403);
+    }
+
+    $data = json_decode(file_get_contents('php://input'), true);
+    $students = $data['students'] ?? [];
+
+    if (!is_array($students) || empty($students)) {
+        jsonResponse(['error' => 'No students provided'], 400);
+    }
+
+    $db = getDB();
+
+    // Get telecallers for round-robin assignment
+    $stmt = $db->query(
+        "SELECT u.id FROM users u
+         LEFT JOIN students s ON s.assigned_to=u.id
+         WHERE u.role='telecaller'
+         GROUP BY u.id ORDER BY COUNT(s.id) ASC"
+    );
+    $telecallers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!$telecallers) {
+        jsonResponse(['error' => 'No telecallers available for assignment'], 400);
+    }
+
+    // Begin transaction
+    $db->beginTransaction();
+    try {
+        $insertStmt = $db->prepare(
+            "INSERT INTO students (name, mobile, present_college, college_type, address, assigned_to, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"
+        );
+
+        $added = 0;
+        $tcIndex = 0;
+
+        foreach ($students as $s) {
+            $name    = sanitize($s['name'] ?? '');
+            $mobile  = sanitize($s['mobile'] ?? '');
+            $college = sanitize($s['present_college'] ?? '');
+            $ctype   = $s['college_type'] ?? 'Other';
+            $address = sanitize($s['address'] ?? '');
+
+            if (!$name || !$mobile) continue; // skip invalid rows
+
+            // Validate college type
+            if (!in_array($ctype, ['PU', 'Diploma', 'Other'])) {
+                $ctype = 'Other';
+            }
+
+            // Round-robin assignment
+            $assigned_to = $telecallers[$tcIndex % count($telecallers)];
+            $tcIndex++;
+
+            $insertStmt->execute([
+                $name,
+                $mobile,
+                $college,
+                $ctype,
+                $address,
+                $assigned_to,
+                $_SESSION['user_id']
+            ]);
+            $added++;
+        }
+
+        $db->commit();
+        jsonResponse(['success' => true, 'added' => $added]);
+
+    } catch (PDOException $e) {
+        $db->rollBack();
+        jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
+    }
+}
+
+function parseExcel() {
+    if (!in_array($_SESSION['role'], ['admin','office'])) {
+        jsonResponse(['error' => 'Forbidden'], 403);
+    }
+
+    if (empty($_FILES['file'])) {
+        jsonResponse(['error' => 'No file uploaded'], 400);
+    }
+
+    $file = $_FILES['file'];
+    $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+    if (!in_array($ext, ['xlsx', 'xls'])) {
+        jsonResponse(['error' => 'Invalid file type. Upload .xlsx or .xls'], 400);
+    }
+
+    // We'll use a PHP library for Excel parsing
+    // For simplicity, let's use PhpSpreadsheet if available, otherwise CSV conversion
+    
+    // Check if PhpSpreadsheet is available
+    if (!class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory')) {
+        // Fallback: tell frontend to use CSV instead
+        jsonResponse([
+            'error' => 'Excel parsing not available on this server. Please convert to CSV and upload.',
+            'suggestion' => 'Open the file in Excel/Sheets and save as CSV, then upload the CSV file.'
+        ], 400);
+    }
+
+    try {
+        require_once __DIR__ . '/../vendor/autoload.php';
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file['tmp_name']);
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows  = $sheet->toArray(null, true, true, false);
+
+        jsonResponse(['success' => true, 'rows' => $rows]);
+
+    } catch (Exception $e) {
+        jsonResponse(['error' => 'Failed to parse Excel: ' . $e->getMessage()], 500);
+    }
 }

@@ -323,11 +323,16 @@ select.form-input option{background:#0d1525}
 
 <!-- ADD STUDENT PAGE -->
 <div id="page-add-student" class="page">
-  <div style="max-width:600px">
-    <div class="table-wrap">
-      <div class="modal-hdr" style="border-radius:var(--radius) var(--radius) 0 0">
-        <h3>➕ Add New Student</h3>
-      </div>
+  <div style="max-width:900px">
+    
+    <!-- Tab navigation -->
+    <div class="tab-nav" style="position:relative;top:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-bottom:0">
+      <div class="tab active" onclick="switchStudentTab('single',this)" data-tab="single">➕ Single Student</div>
+      <div class="tab" onclick="switchStudentTab('bulk',this)" data-tab="bulk">📄 Bulk Upload (CSV/Excel)</div>
+    </div>
+
+    <!-- SINGLE STUDENT TAB -->
+    <div id="student-tab-single" class="table-wrap" style="border-radius:0 0 var(--radius) var(--radius);margin-top:0">
       <div style="padding:1.5rem">
         <div class="alert alert-err" id="add-student-err"></div>
         <div class="alert alert-ok" id="add-student-ok"></div>
@@ -365,6 +370,69 @@ select.form-input option{background:#0d1525}
         </div>
       </div>
     </div>
+
+    <!-- BULK UPLOAD TAB -->
+    <div id="student-tab-bulk" class="table-wrap" style="border-radius:0 0 var(--radius) var(--radius);margin-top:0;display:none">
+      <div style="padding:1.5rem">
+        <div class="alert alert-err" id="bulk-err"></div>
+        <div class="alert alert-ok" id="bulk-ok"></div>
+        
+        <!-- Instructions -->
+        <div style="background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:1rem;margin-bottom:1.5rem">
+          <div style="font-weight:600;margin-bottom:.5rem">📋 File Format Requirements:</div>
+          <div style="font-size:.85rem;color:var(--muted);line-height:1.6">
+            • <strong>Columns (in order):</strong> Name, Mobile, College Type, Present College, Address<br>
+            • <strong>College Type:</strong> Must be exactly "PU", "Diploma", or "Other"<br>
+            • <strong>Supported format:</strong> .csv (Excel: save as CSV first)<br>
+            • <strong>First row:</strong> Can be headers (will be auto-skipped if detected)
+          </div>
+        </div>
+
+        <!-- Download template -->
+        <div style="margin-bottom:1.5rem">
+          <button class="btn btn-outline btn-sm" onclick="downloadTemplate()">
+            ⬇️ Download CSV Template
+          </button>
+        </div>
+
+        <!-- File upload -->
+        <div class="form-group">
+          <label class="form-label">Upload CSV File</label>
+          <input type="file" id="bulk-file" accept=".csv" 
+                 style="padding:.5rem;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:pointer"
+                 onchange="previewBulkFile()">
+        </div>
+
+        <!-- Preview -->
+        <div id="bulk-preview" style="display:none;margin-top:1.5rem">
+          <div style="font-weight:600;margin-bottom:.75rem">📊 Preview (first 5 rows):</div>
+          <div style="overflow-x:auto;background:#0d1525;border-radius:8px;padding:1rem">
+            <table style="font-size:.8rem">
+              <thead>
+                <tr style="color:var(--accent)">
+                  <th style="padding:.4rem .75rem">#</th>
+                  <th style="padding:.4rem .75rem">Name</th>
+                  <th style="padding:.4rem .75rem">Mobile</th>
+                  <th style="padding:.4rem .75rem">Type</th>
+                  <th style="padding:.4rem .75rem">College</th>
+                  <th style="padding:.4rem .75rem">Address</th>
+                </tr>
+              </thead>
+              <tbody id="bulk-preview-body"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:1rem;color:var(--muted);font-size:.85rem" id="bulk-stats"></div>
+        </div>
+
+        <!-- Upload button -->
+        <div style="margin-top:1.5rem">
+          <button class="btn btn-success" id="bulk-upload-btn" onclick="uploadBulk()" disabled>
+            📤 Upload Students
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -854,6 +922,155 @@ function showAlertEl(id, msg) {
   el.textContent = msg;
 }
 
+// ─── BULK UPLOAD ──────────────────────────────────────────
+function switchStudentTab(tab, btn) {
+  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('student-tab-single').style.display = tab==='single' ? '' : 'none';
+  document.getElementById('student-tab-bulk').style.display   = tab==='bulk'   ? '' : 'none';
+}
+
+function downloadTemplate() {
+  const csv = 'Name,Mobile,College Type,Present College,Address\n' +
+              'John Doe,9876543210,PU,ABC PU College,123 Main St\n' +
+              'Jane Smith,9876543211,Diploma,XYZ Polytechnic,456 Oak Ave';
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'students_template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+let bulkData = [];
+
+async function previewBulkFile() {
+  const input = document.getElementById('bulk-file');
+  const file = input.files[0];
+  hideAlert('bulk-err'); hideAlert('bulk-ok');
+  document.getElementById('bulk-preview').style.display = 'none';
+  document.getElementById('bulk-upload-btn').disabled = true;
+
+  if (!file) return;
+
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext !== 'csv') {
+    showAlert('bulk-err','Please upload a CSV file. If you have Excel, save it as CSV first.');
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const rows = parseCSV(text);
+
+    if (!rows.length) { showAlert('bulk-err','File is empty'); return; }
+
+    // Auto-detect headers
+    const firstRow = rows[0].map(c=>String(c||'').toLowerCase());
+    const hasHeaders = firstRow.some(c=>c.includes('name')||c.includes('mobile')||c.includes('college'));
+    if (hasHeaders) rows.shift();
+
+    if (!rows.length) { showAlert('bulk-err','No data rows found after header'); return; }
+
+    // Validate
+    const validated = [];
+    for (let i=0; i<rows.length; i++) {
+      const r = rows[i];
+      const name = String(r[0]||'').trim();
+      const mobile = String(r[1]||'').trim();
+      const ctype = String(r[2]||'').trim() || 'Other';
+      const college = String(r[3]||'').trim();
+      const address = String(r[4]||'').trim();
+
+      if (!name || !mobile) continue;
+
+      if (!['PU','Diploma','Other'].includes(ctype)) {
+        showAlert('bulk-err',`Row ${i+1}: Invalid college type "${ctype}". Must be PU, Diploma, or Other`);
+        return;
+      }
+
+      validated.push({name, mobile, college_type:ctype, present_college:college, address});
+    }
+
+    if (!validated.length) { showAlert('bulk-err','No valid rows. Check Name and Mobile columns.'); return; }
+
+    bulkData = validated;
+
+    // Preview
+    const tbody = document.getElementById('bulk-preview-body');
+    tbody.innerHTML = validated.slice(0,5).map((s,i)=>`
+      <tr>
+        <td style="padding:.4rem .75rem;color:var(--muted)">${i+1}</td>
+        <td style="padding:.4rem .75rem">${esc(s.name)}</td>
+        <td style="padding:.4rem .75rem">${esc(s.mobile)}</td>
+        <td style="padding:.4rem .75rem"><span class="badge badge-blue">${s.college_type}</span></td>
+        <td style="padding:.4rem .75rem">${esc(s.present_college||'—')}</td>
+        <td style="padding:.4rem .75rem">${esc(s.address||'—')}</td>
+      </tr>`).join('');
+    
+    document.getElementById('bulk-stats').textContent = 
+      `Total students: ${validated.length} | Showing first ${Math.min(5,validated.length)} rows`;
+    document.getElementById('bulk-preview').style.display = '';
+    document.getElementById('bulk-upload-btn').disabled = false;
+
+  } catch(e) {
+    console.error(e);
+    showAlert('bulk-err','Error reading file: ' + e.message);
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  return lines.map(line => {
+    // Simple CSV parser — handles quotes
+    const cells = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i=0; i<line.length; i++) {
+      const c = line[i];
+      if (c === '"') inQuotes = !inQuotes;
+      else if (c === ',' && !inQuotes) { cells.push(current); current = ''; }
+      else current += c;
+    }
+    cells.push(current);
+    return cells.map(c=>c.replace(/^"|"$/g,'').trim());
+  });
+}
+
+async function uploadBulk() {
+  if (!bulkData.length) return;
+  hideAlert('bulk-err'); hideAlert('bulk-ok');
+
+  const btn = document.getElementById('bulk-upload-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>Uploading...';
+
+  try {
+    const res = await fetch(BASE + '/api/students.php?action=bulk_add', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({students: bulkData})
+    });
+    const data = await res.json();
+    if (data.success) {
+      showAlert('bulk-ok',`✅ Successfully added ${data.added} students! Auto-assigned to telecallers.`,'alert-ok');
+      bulkData = [];
+      document.getElementById('bulk-file').value = '';
+      document.getElementById('bulk-preview').style.display = 'none';
+      setTimeout(()=>{ showPage('students'); loadStudents(); }, 2000);
+    } else {
+      showAlert('bulk-err', data.error || 'Upload failed');
+    }
+  } catch(e) {
+    showAlert('bulk-err','Network error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '📤 Upload Students';
+  }
+}
+
+// ─── INIT ─────────────────────────────────────────────────
 // Init
 loadDashboard();
 </script>
