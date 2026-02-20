@@ -1,12 +1,15 @@
 <?php
-// index.php
+ini_set('display_errors',1);
+error_reporting(E_ALL);
+
 session_start();
 require_once __DIR__ . '/includes/config.php';
 
 if (!empty($_SESSION['user_id'])) {
-    $role = $_SESSION['role'];
-    $dest = ($role === 'admin') ? '/pages/admin.php' : '/pages/telecaller.php';
-    header('Location: ' . BASE_URL . $dest);
+    $role = $_SESSION['role'] ?? '';
+    header('Location: ' . ($role === 'admin'
+        ? '/pages/admin.php'
+        : '/pages/telecaller.php'));
     exit;
 }
 ?>
@@ -16,79 +19,89 @@ if (!empty($_SESSION['user_id'])) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AdmissionConnect — Login</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#0a0e1a;--card:#111827;--border:#1e2d45;
-  --accent:#3b82f6;--accent2:#06b6d4;--success:#10b981;--danger:#ef4444;
+  --accent:#3b82f6;--accent2:#06b6d4;
   --text:#e2e8f0;--muted:#64748b;--radius:14px;
 }
 html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
 body{display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+
+/* Background */
 body::before{
-  content:'';position:fixed;inset:0;
-  background:radial-gradient(ellipse 80% 60% at 20% 30%,rgba(59,130,246,.12) 0%,transparent 60%),
-             radial-gradient(ellipse 60% 80% at 80% 70%,rgba(6,182,212,.08) 0%,transparent 60%);
-  pointer-events:none;
+  content:'';
+  position:fixed;
+  inset:0;
+  background:radial-gradient(ellipse 80% 60% at 20% 30%,rgba(59,130,246,.12),transparent 60%),
+             radial-gradient(ellipse 60% 80% at 80% 70%,rgba(6,182,212,.08),transparent 60%);
+  pointer-events:none; /* IMPORTANT */
 }
-.login-wrap{width:100%;max-width:420px;padding:1rem;animation:fadeUp .5s ease both}
-@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+.login-wrap{width:100%;max-width:420px;padding:1rem}
 .brand{text-align:center;margin-bottom:2rem}
 .brand-icon{
-  width:64px;height:64px;background:linear-gradient(135deg,var(--accent),var(--accent2));
-  border-radius:18px;display:inline-flex;align-items:center;justify-content:center;
-  font-size:1.8rem;margin-bottom:.8rem;box-shadow:0 0 40px rgba(59,130,246,.3);
+  width:64px;height:64px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.8rem;margin:0 auto .8rem auto;
 }
-.brand h1{font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:800;
+.brand h1{font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:700;
   background:linear-gradient(90deg,#fff,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .brand p{color:var(--muted);font-size:.9rem;margin-top:.3rem}
+
 .card{
-  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
-  padding:2rem;box-shadow:0 25px 50px rgba(0,0,0,.5);
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:2rem;
 }
-.form-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
-.tab-btn{
-  flex:1;padding:.65rem;background:transparent;border:none;color:var(--muted);
-  font-family:'DM Sans',sans-serif;font-size:.9rem;cursor:pointer;
-  border-bottom:2px solid transparent;margin-bottom:-1px;transition:.2s;
+
+.tabs{display:flex;margin-bottom:1.5rem}
+.tabs button{
+  flex:1;padding:.7rem;background:none;border:none;color:var(--muted);
+  border-bottom:2px solid transparent;cursor:pointer
 }
-.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
-.panel{display:none}.panel.active{display:block}
-label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:.4rem;font-weight:500}
+.tabs button.active{color:var(--accent);border-color:var(--accent)}
+
+.panel{display:none}
+.panel.active{display:block}
+
+label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:.4rem}
 input{
-  width:100%;padding:.75rem 1rem;background:#0d1525;border:1px solid var(--border);
-  border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.95rem;
-  transition:border-color .2s;outline:none;margin-bottom:1.1rem;
+  width:100%;padding:.75rem 1rem;background:#0d1525;
+  border:1px solid var(--border);
+  border-radius:8px;color:var(--text);
+  margin-bottom:1.1rem;
 }
-input:focus{border-color:var(--accent)}
-input::placeholder{color:#374151}
+
 .btn{
-  width:100%;padding:.85rem;background:linear-gradient(135deg,var(--accent),var(--accent2));
-  border:none;border-radius:8px;color:#fff;font-family:'Syne',sans-serif;
-  font-size:1rem;font-weight:700;cursor:pointer;letter-spacing:.03em;
-  transition:opacity .2s,transform .1s;
+  width:100%;padding:.85rem;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border:none;border-radius:8px;color:#fff;
+  font-weight:700;cursor:pointer
 }
-.btn:hover{opacity:.9}.btn:active{transform:scale(.98)}.btn:disabled{opacity:.5;cursor:not-allowed}
-.alert{padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.875rem;display:none}
-.alert.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
-.alert.success{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#6ee7b7}
+
+.alert{display:none;padding:.75rem;border-radius:8px;margin-bottom:1rem}
 .alert.show{display:block}
-.spinner{
-  display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);
-  border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:.4rem;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
+.alert.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3)}
+.alert.success{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3)}
+
 .modal-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;
-  align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px);
+  position:fixed;inset:0;background:rgba(0,0,0,.7);
+  display:none;align-items:center;justify-content:center;
 }
 .modal-overlay.show{display:flex}
-.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
-  padding:2rem;width:90%;max-width:380px;animation:fadeUp .3s ease}
-.modal h3{font-family:'Syne',sans-serif;font-size:1.2rem;margin-bottom:.4rem}
-.modal p{color:var(--muted);font-size:.875rem;margin-bottom:1.5rem}
+.modal{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:2rem;width:90%;max-width:380px;
+}
 </style>
 </head>
 <body>
@@ -101,180 +114,128 @@ input::placeholder{color:#374151}
   </div>
 
   <div class="card">
-    <div class="form-tabs">
-      <button class="tab-btn active" onclick="switchTab('login',this)">Sign In</button>
-      <button class="tab-btn" onclick="switchTab('forgot',this)">Forgot Password</button>
+    <div class="tabs">
+      <button class="active" onclick="switchTab('login',this)">Sign In</button>
+      <button onclick="switchTab('forgot',this)">Forgot Password</button>
     </div>
 
     <!-- LOGIN -->
     <div id="panel-login" class="panel active">
       <div class="alert error" id="login-err"></div>
-      <label>Email Address</label>
-      <input type="email" id="login-email" placeholder="your@email.com" autocomplete="email">
+      <label>Email</label>
+      <input type="email" id="login-email">
       <label>Password</label>
-      <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password">
-      <button class="btn" id="login-btn" onclick="doLogin()">Sign In</button>
+      <input type="password" id="login-pass">
+      <button class="btn" onclick="doLogin()">Sign In</button>
     </div>
 
-    <!-- FORGOT PASSWORD -->
+    <!-- FORGOT -->
     <div id="panel-forgot" class="panel">
       <div class="alert error" id="forgot-err"></div>
       <div class="alert success" id="forgot-ok"></div>
-      <label>Email Address</label>
-      <input type="email" id="f-email" placeholder="your@email.com">
+      <label>Email</label>
+      <input type="email" id="f-email">
       <label>Date of Birth</label>
       <input type="date" id="f-dob">
       <label>New Password</label>
-      <input type="password" id="f-pass" placeholder="New password">
+      <input type="password" id="f-pass">
       <label>Confirm Password</label>
-      <input type="password" id="f-confirm" placeholder="Confirm password">
-      <button class="btn" id="forgot-btn" onclick="doForgot()">Reset Password</button>
+      <input type="password" id="f-confirm">
+      <button class="btn" onclick="doForgot()">Reset Password</button>
     </div>
   </div>
 </div>
 
-<!-- Set Password Modal (first login) -->
+<!-- Set Password Modal -->
 <div class="modal-overlay" id="set-pass-modal">
   <div class="modal">
-    <h3>🔐 Set Your Password</h3>
-    <p>First login detected. Create a new secure password to continue.</p>
     <div class="alert error" id="sp-err"></div>
     <label>New Password</label>
-    <input type="password" id="sp-pass" placeholder="Minimum 6 characters">
+    <input type="password" id="sp-pass">
     <label>Confirm Password</label>
-    <input type="password" id="sp-confirm" placeholder="Confirm password">
-    <button class="btn" onclick="doSetPassword()">Set Password &amp; Continue</button>
+    <input type="password" id="sp-confirm">
+    <button class="btn" onclick="doSetPassword()">Set Password</button>
   </div>
 </div>
 
 <script>
-// BASE is injected by PHP — guarantees correct URL on any host
-const BASE = '<?php echo rtrim(BASE_URL, "/"); ?>';
-let tempUserId = null;
+let tempUserId=null;
 
-function switchTab(tab, btn) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+function switchTab(tab,btn){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('panel-' + tab).classList.add('active');
+  document.getElementById('panel-'+tab).classList.add('active');
 }
 
-function showAlert(id, msg, type = 'error') {
-  const el = document.getElementById(id);
-  el.className = 'alert ' + type + ' show';
-  el.textContent = msg;
-}
-function hideAlert(id) { document.getElementById(id).className = 'alert'; }
-
-async function apiCall(endpoint, body) {
-  const res = await fetch(BASE + endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify(body)
+async function api(endpoint,data){
+  const res=await fetch(endpoint,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    credentials:'same-origin',
+    body:JSON.stringify(data)
   });
-  // Try to parse JSON even on error status
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    console.error('Non-JSON response:', text);
-    throw new Error('Server returned non-JSON response. Status: ' + res.status);
+  return res.json();
+}
+
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  const box=document.getElementById('login-err');
+  box.classList.remove('show');
+
+  const data=await api('/api/auth.php?action=login',{email,password:pass});
+
+  if(data.require_set_password){
+    tempUserId=data.user_id;
+    document.getElementById('set-pass-modal').classList.add('show');
+  }else if(data.success){
+    window.location.href=data.user.role==='admin'
+      ?'/pages/admin.php'
+      :'/pages/telecaller.php';
+  }else{
+    box.textContent=data.error||'Login failed';
+    box.classList.add('show');
   }
 }
 
-async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const pass  = document.getElementById('login-pass').value;
-  hideAlert('login-err');
+async function doSetPassword(){
+  const pass=document.getElementById('sp-pass').value;
+  const confirm=document.getElementById('sp-confirm').value;
+  const box=document.getElementById('sp-err');
+  box.classList.remove('show');
 
-  if (!email || !pass) { showAlert('login-err', 'Email and password are required'); return; }
+  const data=await api('/api/auth.php?action=set_password',{
+    user_id:tempUserId,password:pass,confirm_password:confirm
+  });
 
-  const btn = document.getElementById('login-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Signing in...';
-
-  try {
-    const data = await apiCall('/api/auth.php?action=login', { email, password: pass });
-
-    if (data.require_set_password) {
-      tempUserId = data.user_id;
-      document.getElementById('set-pass-modal').classList.add('show');
-    } else if (data.success) {
-      window.location.href = BASE + (data.user.role === 'admin' ? '/pages/admin.php' : '/pages/telecaller.php');
-    } else {
-      showAlert('login-err', data.error || 'Login failed. Check credentials.');
-    }
-  } catch (e) {
-    console.error(e);
-    showAlert('login-err', e.message || 'Network error. Please try again.');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Sign In';
+  if(data.success){
+    window.location.href=data.role==='admin'
+      ?'/pages/admin.php'
+      :'/pages/telecaller.php';
+  }else{
+    box.textContent=data.error||'Error';
+    box.classList.add('show');
   }
 }
 
-async function doSetPassword() {
-  const pass    = document.getElementById('sp-pass').value;
-  const confirm = document.getElementById('sp-confirm').value;
-  hideAlert('sp-err');
+async function doForgot(){
+  const data=await api('/api/auth.php?action=forgot_password',{
+    email:document.getElementById('f-email').value,
+    dob:document.getElementById('f-dob').value,
+    password:document.getElementById('f-pass').value,
+    confirm_password:document.getElementById('f-confirm').value
+  });
 
-  if (!pass || !confirm) { showAlert('sp-err', 'Both fields required'); return; }
-  if (pass !== confirm)  { showAlert('sp-err', 'Passwords do not match'); return; }
-  if (pass.length < 6)   { showAlert('sp-err', 'Minimum 6 characters'); return; }
-
-  try {
-    const data = await apiCall('/api/auth.php?action=set_password', {
-      user_id: tempUserId, password: pass, confirm_password: confirm
-    });
-    if (data.success) {
-      window.location.href = BASE + (data.role === 'admin' ? '/pages/admin.php' : '/pages/telecaller.php');
-    } else {
-      showAlert('sp-err', data.error || 'Failed to set password');
-    }
-  } catch (e) {
-    showAlert('sp-err', e.message || 'Network error');
+  if(data.success){
+    document.getElementById('forgot-ok').textContent="Password reset!";
+    document.getElementById('forgot-ok').classList.add('show');
+  }else{
+    document.getElementById('forgot-err').textContent=data.error||'Error';
+    document.getElementById('forgot-err').classList.add('show');
   }
 }
-
-async function doForgot() {
-  const email   = document.getElementById('f-email').value.trim();
-  const dob     = document.getElementById('f-dob').value;
-  const pass    = document.getElementById('f-pass').value;
-  const confirm = document.getElementById('f-confirm').value;
-  hideAlert('forgot-err'); hideAlert('forgot-ok');
-
-  if (!email || !dob || !pass || !confirm) { showAlert('forgot-err', 'All fields required'); return; }
-  if (pass !== confirm) { showAlert('forgot-err', 'Passwords do not match'); return; }
-
-  const btn = document.getElementById('forgot-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Resetting...';
-
-  try {
-    const data = await apiCall('/api/auth.php?action=forgot_password', {
-      email, dob, password: pass, confirm_password: confirm
-    });
-    if (data.success) {
-      showAlert('forgot-ok', 'Password reset! You can now sign in.', 'success');
-      setTimeout(() => switchTab('login', document.querySelector('.tab-btn')), 2000);
-    } else {
-      showAlert('forgot-err', data.error || 'Reset failed. Check email and date of birth.');
-    }
-  } catch (e) {
-    showAlert('forgot-err', e.message || 'Network error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Reset Password';
-  }
-}
-
-document.addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  const active = document.querySelector('.panel.active').id;
-  if (active === 'panel-login') doLogin();
-  else if (active === 'panel-forgot') doForgot();
-});
 </script>
+
 </body>
 </html>
