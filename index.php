@@ -41,7 +41,7 @@ body::before{
   border-radius:18px;display:inline-flex;align-items:center;justify-content:center;
   font-size:1.8rem;margin-bottom:.8rem;box-shadow:0 0 40px rgba(59,130,246,.3);
 }
-.brand h1{font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:800;
+.brand h1{font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:700;
   background:linear-gradient(90deg,#fff,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .brand p{color:var(--muted);font-size:.9rem;margin-top:.3rem}
 .card{
