@@ -861,6 +861,27 @@ function switchStudentTab(tab, el) {
 
   URL.revokeObjectURL(url);
 }
+    function previewBulkFile() {
+  const fileInput = document.getElementById('bulk-file');
+  const uploadBtn = document.getElementById('bulk-upload-btn');
+
+  if (!fileInput.files.length) {
+    uploadBtn.disabled = true;
+    return;
+  }
+
+  const file = fileInput.files[0];
+
+  // Allow only CSV
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    alert('Please upload a CSV file only.');
+    fileInput.value = '';
+    uploadBtn.disabled = true;
+    return;
+  }
+
+  uploadBtn.disabled = false;
+}
 </script>
 </body>
 </html>
