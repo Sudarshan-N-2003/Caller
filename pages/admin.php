@@ -15,6 +15,29 @@ $adminName = $_SESSION['name'];
 <title>Admin — AdmissionConnect</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <style>
+
+    .tab-nav {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: .75rem 1.2rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  transition: .2s;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#0a0e1a;--sidebar:#0d1220;--card:#111827;--border:#1e2d45;
@@ -794,6 +817,26 @@ function esc(s){
 
 /* ───────────── INIT ───────────── */
 loadDashboard();
+
+    /* ───────────── STUDENT TAB SWITCH ───────────── */
+function switchStudentTab(tab, el) {
+  // Remove active class from all tab buttons
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  
+  // Hide all tab contents
+  document.getElementById('student-tab-single').style.display = 'none';
+  document.getElementById('student-tab-bulk').style.display = 'none';
+
+  // Activate selected tab button
+  if (el) el.classList.add('active');
+
+  // Show selected content
+  if (tab === 'single') {
+    document.getElementById('student-tab-single').style.display = 'block';
+  } else if (tab === 'bulk') {
+    document.getElementById('student-tab-bulk').style.display = 'block';
+  }
+}
 </script>
 </body>
 </html>
