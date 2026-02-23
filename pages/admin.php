@@ -1,11 +1,17 @@
 <?php
 // pages/admin.php
+
+ob_start(); // Prevent "headers already sent"
 session_start();
+
 require_once __DIR__ . '/../includes/config.php';
+
 if (empty($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '/'); exit;
+    header('Location: ' . rtrim(BASE_URL, '/') . '/');
+    exit;
 }
-$adminName = $_SESSION['name'];
+
+$adminName = $_SESSION['name'] ?? 'Admin';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -13,7 +19,9 @@ $adminName = $_SESSION['name'];
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin — AdmissionConnect</title>
+
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+
 <style>
 
     .tab-nav {
@@ -279,49 +287,75 @@ select.form-input option{background:#0d1525}
 <body>
 
 <div class="app">
-<!-- Sidebar -->
+
+<!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
     <div class="icon">📞</div>
     <span>AdmissionConnect</span>
   </div>
+
   <nav class="nav">
     <div class="nav-label">Main</div>
-    <div class="nav-item active" onclick="showPage('dashboard')" data-page="dashboard"><span class="ico">📊</span> Dashboard</div>
+    <div class="nav-item active" onclick="showPage('dashboard')" data-page="dashboard">
+      <span class="ico">📊</span> Dashboard
+    </div>
+
     <div class="nav-label">Students</div>
-    <div class="nav-item" onclick="showPage('add-student')" data-page="add-student"><span class="ico">➕</span> Add Student</div>
-    <div class="nav-item" onclick="showPage('students')" data-page="students"><span class="ico">👥</span> All Students</div>
+    <div class="nav-item" onclick="showPage('add-student')" data-page="add-student">
+      <span class="ico">➕</span> Add Student
+    </div>
+    <div class="nav-item" onclick="showPage('students')" data-page="students">
+      <span class="ico">👥</span> All Students
+    </div>
+
     <div class="nav-label">Team</div>
-    <div class="nav-item" onclick="showPage('add-user')" data-page="add-user"><span class="ico">👤</span> Add User</div>
-    <div class="nav-item" onclick="showPage('view-users')" data-page="view-users"><span class="ico">🗂️</span> View Users</div>
+    <div class="nav-item" onclick="showPage('add-user')" data-page="add-user">
+      <span class="ico">👤</span> Add User
+    </div>
+    <div class="nav-item" onclick="showPage('view-users')" data-page="view-users">
+      <span class="ico">🗂️</span> View Users
+    </div>
+
     <div class="nav-label">Reports</div>
-    <div class="nav-item" onclick="exportExcel()"><span class="ico">⬇️</span> Export Excel</div>
+    <div class="nav-item" onclick="exportExcel()">
+      <span class="ico">⬇️</span> Export Excel
+    </div>
   </nav>
 </aside>
+
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-<!-- Top Bar -->
+<!-- TOP BAR -->
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:1rem">
     <button class="hamburger" onclick="toggleSidebar()">☰</button>
     <h2 id="page-title">Dashboard</h2>
   </div>
+
   <div class="topbar-right">
     <div class="profile-btn" onclick="toggleProfilePopup()">
       <div class="avatar"><?= strtoupper(substr($adminName,0,1)) ?></div>
       <span class="profile-name"><?= htmlspecialchars($adminName) ?></span>
       <span style="font-size:.7rem;color:var(--muted)">▼</span>
+
       <div class="profile-popup" id="profile-popup">
-        <div class="popup-item"><span>👤</span> <?= htmlspecialchars($adminName) ?></div>
-        <div class="popup-item"><span style="font-size:.7rem;color:var(--muted)">Admin</span></div>
+        <div class="popup-item">
+          <span>👤</span> <?= htmlspecialchars($adminName) ?>
+        </div>
+        <div class="popup-item">
+          <span style="font-size:.7rem;color:var(--muted)">Admin</span>
+        </div>
         <div class="popup-divider"></div>
-        <div class="popup-item logout" onclick="doLogout()"><span>🚪</span> Logout</div>
+        <div class="popup-item logout" onclick="doLogout()">
+          <span>🚪</span> Logout
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Main Content -->
+<!-- MAIN CONTENT -->
 <main class="main">
 
 <!-- DASHBOARD PAGE -->
@@ -612,13 +646,15 @@ select.form-input option{background:#0d1525}
     </div>
   </div>
 </div>
+</main>
+</div>
 
 <script>
+
+const BASE = '<?= rtrim(BASE_URL, "/") ?>';
 // ────────────────────────────────────────────────
 //   CONFIG & HELPERS
 // ────────────────────────────────────────────────
-
-const BASE = '<?php echo rtrim(BASE_URL, "/"); ?>';
 
 function esc(s) {
   return String(s || '').replace(/[&<>"']/g, m => ({
