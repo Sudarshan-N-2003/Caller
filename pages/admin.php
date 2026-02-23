@@ -837,6 +837,30 @@ function switchStudentTab(tab, el) {
     document.getElementById('student-tab-bulk').style.display = 'block';
   }
 }
+    function downloadTemplate() {
+  const headers = ['Name','Mobile','College Type','Present College','Address'];
+
+  const sampleRows = [
+    ['Rahul Kumar','9876543210','PU','ABC PU College','Bangalore'],
+    ['Anjali Sharma','9123456780','Diploma','XYZ Polytechnic','Mysore']
+  ];
+
+  let csvContent = headers.join(',') + '\n';
+
+  sampleRows.forEach(row => {
+    csvContent += row.join(',') + '\n';
+  });
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'student_template.csv';
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
 </script>
 </body>
 </html>
