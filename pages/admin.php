@@ -593,7 +593,23 @@ select.form-input option{background:#0d1525}
 <script>
 const BASE = '<?php echo rtrim(BASE_URL, "/"); ?>';
 
-/* ───────────────── NAVIGATION ───────────────── */
+/* ───────────── HELPER FETCH (WITH SESSION) ───────────── */
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    ...options
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || 'Request failed');
+  }
+
+  return res.json();
+}
+
+/* ───────────── NAVIGATION ───────────── */
 const pageTitles = {
   'dashboard':'Dashboard',
   'add-student':'Add Student',
@@ -611,12 +627,13 @@ function showPage(name) {
   document.getElementById('page-title').textContent = pageTitles[name] || name;
 
   if (name === 'dashboard') loadDashboard();
-  if (name === 'students') { loadStudents(); loadTcFilter(); }
+  if (name === 'students') loadStudents();
   if (name === 'view-users') loadUsers();
 
   closeSidebar();
 }
 
+/* ───────────── SIDEBAR ───────────── */
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebar-overlay').classList.toggle('show');
@@ -626,6 +643,7 @@ function closeSidebar() {
   document.getElementById('sidebar-overlay').classList.remove('show');
 }
 
+/* ───────────── PROFILE ───────────── */
 function toggleProfilePopup() {
   document.getElementById('profile-popup').classList.toggle('show');
 }
@@ -635,27 +653,21 @@ document.addEventListener('click', e => {
   }
 });
 
-function closeModal(id){ document.getElementById(id).classList.remove('show'); }
-function openModal(id){ document.getElementById(id).classList.add('show'); }
-
 async function doLogout(){
-  await fetch(BASE + '/api/auth.php?action=logout',{method:'POST'});
+  await apiFetch(BASE + '/api/auth.php?action=logout', {
+    method:'POST'
+  });
   window.location.href = BASE + '/';
 }
 
-/* ───────────────── DASHBOARD ───────────────── */
+/* ───────────── DASHBOARD ───────────── */
 async function loadDashboard() {
   const grid = document.getElementById('tc-grid');
   grid.innerHTML = '<div style="color:var(--muted);padding:2rem;text-align:center">⏳ Loading...</div>';
 
   try {
-    const [summaryRes, tcRes] = await Promise.all([
-      fetch(BASE + '/api/students.php?action=summary'),
-      fetch(BASE + '/api/users.php?action=stats')
-    ]);
-
-    const summary = await summaryRes.json();
-    const tcStats = await tcRes.json();
+    const summary = await apiFetch(BASE + '/api/students.php?action=summary');
+    const tcStats = await apiFetch(BASE + '/api/users.php?action=stats');
 
     document.getElementById('s-total').textContent = summary.total || 0;
     document.getElementById('s-accepted').textContent = summary.accepted || 0;
@@ -681,13 +693,20 @@ async function loadDashboard() {
             <div class="tc-name">${esc(tc.name)}</div>
             <div class="tc-email">${esc(tc.email)}</div>
           </div>
-          <button class="btn btn-outline btn-sm" onclick="viewTcStudents(${tc.id},'${esc(tc.name)}')">View</button>
         </div>
         <div class="tc-stats">
-          <div class="tc-stat"><div class="tc-stat-val" style="color:var(--accent)">${total}</div><div class="tc-stat-lbl">Assigned</div></div>
-          <div class="tc-stat"><div class="tc-stat-val" style="color:var(--success)">${accepted}</div><div class="tc-stat-lbl">Accepted</div></div>
+          <div class="tc-stat">
+            <div class="tc-stat-val" style="color:var(--accent)">${total}</div>
+            <div class="tc-stat-lbl">Assigned</div>
+          </div>
+          <div class="tc-stat">
+            <div class="tc-stat-val" style="color:var(--success)">${accepted}</div>
+            <div class="tc-stat-lbl">Accepted</div>
+          </div>
         </div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:${pct}%"></div>
+        </div>
         <div style="font-size:.72rem;color:var(--muted);margin-top:.3rem">${pct}% acceptance rate</div>
       </div>`;
     }).join('');
@@ -698,14 +717,13 @@ async function loadDashboard() {
   }
 }
 
-/* ───────────────── STUDENTS ───────────────── */
+/* ───────────── STUDENTS ───────────── */
 async function loadStudents(){
   const tbody = document.getElementById('students-tbody');
   tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Loading...</td></tr>';
 
   try{
-    const res = await fetch(BASE + '/api/students.php?action=list');
-    const data = await res.json();
+    const data = await apiFetch(BASE + '/api/students.php?action=list');
 
     if(!data.length){
       tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No students found</td></tr>';
@@ -722,24 +740,24 @@ async function loadStudents(){
         <td>${s.assigned_name||'Unassigned'}</td>
         <td>${s.status||'pending'}</td>
         <td>
-          <button class="btn btn-outline btn-sm" onclick="viewStudentDetail(${s.id})">👁</button>
+          <button class="btn btn-outline btn-sm">👁</button>
         </td>
       </tr>
     `).join('');
 
   }catch(e){
+    console.error(e);
     tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--danger);padding:2rem">Failed to load</td></tr>';
   }
 }
 
-/* ───────────────── USERS ───────────────── */
+/* ───────────── USERS ───────────── */
 async function loadUsers(){
   const tbody=document.getElementById('users-tbody');
   tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Loading...</td></tr>';
 
   try{
-    const res=await fetch(BASE+'/api/users.php?action=list');
-    const data=await res.json();
+    const data = await apiFetch(BASE+'/api/users.php?action=list');
 
     if(!data.length){
       tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No users</td></tr>';
@@ -754,23 +772,28 @@ async function loadUsers(){
         <td>${esc(u.phone)}</td>
         <td>${u.role}</td>
         <td>${u.dob||'—'}</td>
+        <td></td>
       </tr>
     `).join('');
   }catch(e){
+    console.error(e);
     tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:2rem">Failed to load</td></tr>';
   }
 }
 
-/* ───────────────── HELPERS ───────────────── */
+/* ───────────── ESCAPE HELPER ───────────── */
 function esc(s){
   return String(s||'').replace(/[&<>"']/g,m=>({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
   }[m]));
 }
 
-/* ───────────────── INIT ───────────────── */
+/* ───────────── INIT ───────────── */
 loadDashboard();
-
 </script>
 </body>
 </html>
