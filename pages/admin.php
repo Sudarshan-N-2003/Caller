@@ -592,10 +592,14 @@ select.form-input option{background:#0d1525}
 
 <script>
 const BASE = '<?php echo rtrim(BASE_URL, "/"); ?>';
-// ─── NAVIGATION ───────────────────────────────────────────
+
+/* ───────────────── NAVIGATION ───────────────── */
 const pageTitles = {
-  'dashboard':'Dashboard', 'add-student':'Add Student',
-  'students':'All Students', 'add-user':'Add User', 'view-users':'View Users'
+  'dashboard':'Dashboard',
+  'add-student':'Add Student',
+  'students':'All Students',
+  'add-user':'Add User',
+  'view-users':'View Users'
 };
 
 function showPage(name) {
@@ -605,9 +609,11 @@ function showPage(name) {
   const navEl = document.querySelector(`[data-page="${name}"]`);
   if (navEl) navEl.classList.add('active');
   document.getElementById('page-title').textContent = pageTitles[name] || name;
+
   if (name === 'dashboard') loadDashboard();
-  if (name === 'students')  { loadStudents(); loadTcFilter(); }
+  if (name === 'students') { loadStudents(); loadTcFilter(); }
   if (name === 'view-users') loadUsers();
+
   closeSidebar();
 }
 
@@ -629,70 +635,48 @@ document.addEventListener('click', e => {
   }
 });
 
-function closeModal(id) { document.getElementById(id).classList.remove('show') }
-function openModal(id)  { document.getElementById(id).classList.add('show')    }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function openModal(id){ document.getElementById(id).classList.add('show'); }
 
-async function doLogout() {
-  await fetch(BASE + '/api/auth.php?action=logout', {method:'POST'});
+async function doLogout(){
+  await fetch(BASE + '/api/auth.php?action=logout',{method:'POST'});
   window.location.href = BASE + '/';
 }
 
-// ─── DASHBOARD ────────────────────────────────────────────
+/* ───────────────── DASHBOARD ───────────────── */
 async function loadDashboard() {
-  const statsEl = document.getElementById('tc-grid');
-  statsEl.innerHTML = '<div style="color:var(--muted);padding:2rem;text-align:center">⏳ Loading...</div>';
-  
+  const grid = document.getElementById('tc-grid');
+  grid.innerHTML = '<div style="color:var(--muted);padding:2rem;text-align:center">⏳ Loading...</div>';
+
   try {
-    // Add 10 second timeout
-    const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000)
-    );
-    
-    const [summary, tcStats] = await Promise.race([
-      Promise.all([
-        fetch(BASE + '/api/students.php?action=summary').then(r=>r.json()),
-        fetch(BASE + '/api/users.php?action=stats').then(r=>r.json())
-      ]),
-      timeout
+    const [summaryRes, tcRes] = await Promise.all([
+      fetch(BASE + '/api/students.php?action=summary'),
+      fetch(BASE + '/api/users.php?action=stats')
     ]);
-    
-    // Check if response is an error
-    if (summary.error) {
-      console.error('Summary error:', summary.error);
-      document.getElementById('s-total').textContent = '—';
-      document.getElementById('s-accepted').textContent = '—';
-      document.getElementById('s-rejected').textContent = '—';
-      document.getElementById('s-pending').textContent = '—';
-      document.getElementById('s-callback').textContent = '—';
-      document.getElementById('s-unassigned').textContent = '—';
-    } else {
-      document.getElementById('s-total').textContent     = summary.total     || 0;
-      document.getElementById('s-accepted').textContent  = summary.accepted  || 0;
-      document.getElementById('s-rejected').textContent  = summary.rejected  || 0;
-      document.getElementById('s-pending').textContent   = summary.pending   || 0;
-      document.getElementById('s-callback').textContent  = summary.callback  || 0;
-      document.getElementById('s-unassigned').textContent= summary.unassigned|| 0;
+
+    const summary = await summaryRes.json();
+    const tcStats = await tcRes.json();
+
+    document.getElementById('s-total').textContent = summary.total || 0;
+    document.getElementById('s-accepted').textContent = summary.accepted || 0;
+    document.getElementById('s-rejected').textContent = summary.rejected || 0;
+    document.getElementById('s-pending').textContent = summary.pending || 0;
+    document.getElementById('s-callback').textContent = summary.callback || 0;
+    document.getElementById('s-unassigned').textContent = summary.unassigned || 0;
+
+    if (!tcStats.length) {
+      grid.innerHTML = '<div class="empty-state"><div class="ico">👥</div><p>No telecallers yet.</p></div>';
+      return;
     }
 
-    const grid = document.getElementById('tc-grid');
-    
-    if (tcStats.error) {
-      grid.innerHTML = `<div style="color:var(--danger);padding:2rem;text-align:center">❌ Error loading telecallers: ${esc(tcStats.error)}</div>`;
-      return;
-    }
-    
-    if (!tcStats.length) {
-      grid.innerHTML = '<div class="empty-state"><div class="ico">👥</div><p>No telecallers yet. Add users with "Telecaller" role first.</p></div>';
-      return;
-    }
-    
-    grid.innerHTML = tcStats.map(tc => {
-      const total    = parseInt(tc.total_assigned)||0;
+    grid.innerHTML = tcStats.map(tc=>{
+      const total = parseInt(tc.total_assigned)||0;
       const accepted = parseInt(tc.accepted)||0;
-      const pct      = total ? Math.round((accepted/total)*100) : 0;
+      const pct = total ? Math.round((accepted/total)*100) : 0;
+
       return `
       <div class="tc-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:.5rem">
           <div>
             <div class="tc-name">${esc(tc.name)}</div>
             <div class="tc-email">${esc(tc.email)}</div>
@@ -702,416 +686,91 @@ async function loadDashboard() {
         <div class="tc-stats">
           <div class="tc-stat"><div class="tc-stat-val" style="color:var(--accent)">${total}</div><div class="tc-stat-lbl">Assigned</div></div>
           <div class="tc-stat"><div class="tc-stat-val" style="color:var(--success)">${accepted}</div><div class="tc-stat-lbl">Accepted</div></div>
-          <div class="tc-stat"><div class="tc-stat-val" style="color:var(--danger)">${tc.rejected||0}</div><div class="tc-stat-lbl">Rejected</div></div>
-          <div class="tc-stat"><div class="tc-stat-val" style="color:var(--warn)">${tc.pending||0}</div><div class="tc-stat-lbl">Pending</div></div>
         </div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
         <div style="font-size:.72rem;color:var(--muted);margin-top:.3rem">${pct}% acceptance rate</div>
       </div>`;
     }).join('');
-  } catch(e) { 
-    console.error('Dashboard load error:', e);
-    const grid = document.getElementById('tc-grid');
-    grid.innerHTML = `<div style="color:var(--danger);padding:2rem;text-align:center">
-      ❌ Failed to load dashboard<br>
-      <span style="font-size:.85rem;color:var(--muted);margin-top:.5rem;display:block">${esc(e.message)}</span>
-      <button class="btn btn-outline btn-sm" onclick="loadDashboard()" style="margin-top:1rem">🔄 Retry</button>
-    </div>`;
-  }
-}
-}
 
-async function viewTcStudents(tcId, tcName) {
-  const res  = await fetch(`${BASE}/api/students.php?action=list&assigned_to=${tcId}`);
-  const data = await res.json();
-  document.getElementById('sd-title').textContent = `Students — ${tcName}`;
-  const body = document.getElementById('sd-body');
-  if (!data.length) { body.innerHTML = '<p style="color:var(--muted)">No students assigned.</p>'; openModal('student-modal'); return; }
-  body.innerHTML = `
-  <div style="overflow-x:auto">
-  <table>
-    <thead><tr><th>Name</th><th>Mobile</th><th>Status</th><th>Last Feedback</th></tr></thead>
-    <tbody>${data.map(s=>`
-      <tr>
-        <td>${esc(s.name)}</td>
-        <td>${esc(s.mobile)}</td>
-        <td>${statusBadge(s.status)}</td>
-        <td>${s.last_feedback ? statusBadge(s.last_feedback) : '<span style="color:var(--muted)">—</span>'}</td>
-      </tr>`).join('')}
-    </tbody>
-  </table>
-  </div>`;
-  openModal('student-modal');
-}
-
-// ─── STUDENTS ─────────────────────────────────────────────
-async function loadStudents() {
-  const search = document.getElementById('student-search').value;
-  const status = document.getElementById('student-status-filter').value;
-  const tc     = document.getElementById('student-tc-filter').value;
-  const params = new URLSearchParams({action:'list'});
-  if (search) params.set('search', search);
-  if (status) params.set('status', status);
-  if (tc)     params.set('assigned_to', tc);
-
-  const tbody = document.getElementById('students-tbody');
-  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Loading...</td></tr>';
-
-  const data = await fetch(BASE + '/api/students.php?' + params).then(r=>r.json());
-  if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No students found</td></tr>';
-    return;
-  }
-  tbody.innerHTML = data.map((s,i)=>`
-  <tr>
-    <td>${i+1}</td>
-    <td><strong>${esc(s.name)}</strong></td>
-    <td><a href="tel:${esc(s.mobile)}" style="color:var(--accent)">${esc(s.mobile)}</a></td>
-    <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.present_college||'—')}</td>
-    <td><span class="badge badge-blue">${s.college_type||'—'}</span></td>
-    <td>${s.assigned_name ? esc(s.assigned_name) : '<span class="badge badge-gray">Unassigned</span>'}</td>
-    <td>${statusBadge(s.status)}</td>
-    <td>${s.last_feedback ? statusBadge(s.last_feedback) : '<span style="color:var(--muted)">—</span>'}</td>
-    <td>
-      <button class="btn btn-outline btn-sm" onclick="viewStudentDetail(${s.id})">👁</button>
-      <button class="btn btn-outline btn-sm" onclick="openReassign(${s.id})">🔄</button>
-    </td>
-  </tr>`).join('');
-}
-
-async function loadTcFilter() {
-  const tcs = await fetch(BASE + '/api/users.php?action=telecallers').then(r=>r.json());
-  const sel = document.getElementById('student-tc-filter');
-  sel.innerHTML = '<option value="">All Telecallers</option>' +
-    tcs.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
-}
-
-async function viewStudentDetail(id) {
-  const data = await fetch(`${BASE}/api/students.php?action=detail&id=${id}`).then(r=>r.json());
-  document.getElementById('sd-title').textContent = data.name;
-  document.getElementById('sd-body').innerHTML = `
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem">
-    <div><div style="font-size:.75rem;color:var(--muted)">Mobile</div><div style="font-weight:500">${esc(data.mobile)}</div></div>
-    <div><div style="font-size:.75rem;color:var(--muted)">Status</div>${statusBadge(data.status)}</div>
-    <div><div style="font-size:.75rem;color:var(--muted)">College</div><div>${esc(data.present_college||'—')}</div></div>
-    <div><div style="font-size:.75rem;color:var(--muted)">Type</div><div>${data.college_type||'—'}</div></div>
-    <div style="grid-column:1/-1"><div style="font-size:.75rem;color:var(--muted)">Address</div><div>${esc(data.address||'—')}</div></div>
-    <div><div style="font-size:.75rem;color:var(--muted)">Assigned To</div><div>${esc(data.assigned_name||'Unassigned')}</div></div>
-  </div>
-  <h4 style="font-family:'Syne',sans-serif;font-size:.9rem;margin-bottom:.75rem">Call History</h4>
-  ${data.feedback_history?.length ? `
-  <div style="display:flex;flex-direction:column;gap:.5rem">
-    ${data.feedback_history.map(f=>`
-    <div style="background:#0d1525;border-radius:8px;padding:.75rem">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem">
-        ${statusBadge(f.call_status)}
-        <span style="font-size:.75rem;color:var(--muted)">${new Date(f.created_at).toLocaleString()}</span>
-      </div>
-      ${f.other_reason ? `<p style="font-size:.82rem;color:var(--muted)">${esc(f.other_reason)}</p>` : ''}
-      ${f.callback_date ? `<p style="font-size:.82rem;color:var(--warn)">📅 Callback: ${f.callback_date}</p>` : ''}
-      <p style="font-size:.78rem;color:var(--muted)">By: ${esc(f.caller_name||'—')}</p>
-    </div>`).join('')}
-  </div>` : '<p style="color:var(--muted);font-size:.875rem">No calls made yet.</p>'}`;
-  openModal('student-modal');
-}
-
-let tcList = [];
-async function openReassign(studentId) {
-  document.getElementById('ra-student-id').value = studentId;
-  if (!tcList.length) tcList = await fetch(BASE + '/api/users.php?action=telecallers').then(r=>r.json());
-  document.getElementById('ra-tc-select').innerHTML = tcList.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
-  openModal('reassign-modal');
-}
-
-async function doReassign() {
-  const student_id = parseInt(document.getElementById('ra-student-id').value);
-  const user_id    = parseInt(document.getElementById('ra-tc-select').value);
-  await fetch(BASE + '/api/students.php?action=assign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({student_id,user_id})});
-  closeModal('reassign-modal');
-  loadStudents();
-}
-
-async function addStudent() {
-  const name    = document.getElementById('s-name').value.trim();
-  const mobile  = document.getElementById('s-mobile').value.trim();
-  const ctype   = document.getElementById('s-ctype').value;
-  const college = document.getElementById('s-college').value.trim();
-  const address = document.getElementById('s-address').value.trim();
-  hideAlert('add-student-err'); hideAlert('add-student-ok');
-
-  if (!name||!mobile) { showAlert('add-student-err','Name and mobile required'); return; }
-
-  const btn = document.getElementById('add-student-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Adding...';
-
-  try {
-    const res = await fetch(BASE + '/api/students.php?action=add',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,mobile,college_type:ctype,present_college:college,address})
-    });
-    const data = await res.json();
-    if (data.success) {
-      showAlert('add-student-ok','Student added and assigned successfully!','alert-ok');
-      clearStudentForm();
-    } else { showAlert('add-student-err', data.error||'Failed'); }
-  } catch(e){ showAlert('add-student-err','Network error'); }
-  finally { btn.disabled=false; btn.innerHTML='➕ Add Student'; }
-}
-
-function clearStudentForm() {
-  ['s-name','s-mobile','s-college','s-address'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('s-ctype').value='PU';
-}
-
-// ─── USERS ─────────────────────────────────────────────────
-async function loadUsers() {
-  const search = document.getElementById('user-search').value.toLowerCase();
-  const roleF  = document.getElementById('user-role-filter').value;
-  const tbody  = document.getElementById('users-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Loading...</td></tr>';
-
-  let data = await fetch(BASE + '/api/users.php?action=list').then(r=>r.json());
-  if (search) data = data.filter(u=>u.name.toLowerCase().includes(search)||u.email.toLowerCase().includes(search));
-  if (roleF)  data = data.filter(u=>u.role===roleF);
-
-  if (!data.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No users found</td></tr>'; return; }
-  tbody.innerHTML = data.map((u,i)=>`
-  <tr>
-    <td>${i+1}</td>
-    <td><strong>${esc(u.name)}</strong></td>
-    <td>${esc(u.email)}</td>
-    <td>${esc(u.phone)}</td>
-    <td>${roleBadge(u.role)}</td>
-    <td style="color:var(--muted)">${u.dob||'—'}</td>
-    <td><button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id},'${esc(u.name)}')">🗑</button></td>
-  </tr>`).join('');
-}
-
-async function addUser() {
-  const name   = document.getElementById('u-name').value.trim();
-  const email  = document.getElementById('u-email').value.trim();
-  const phone  = document.getElementById('u-phone').value.trim();
-  const role   = document.getElementById('u-role').value;
-  const gender = document.getElementById('u-gender').value;
-  const dob    = document.getElementById('u-dob').value;
-  document.getElementById('add-user-err').classList.remove('show');
-  document.getElementById('pass-reveal').style.display='none';
-
-  if (!name||!email||!phone||!dob) { showAlertEl('add-user-err','All fields required'); return; }
-
-  const btn = document.getElementById('add-user-btn');
-  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Creating...';
-
-  try {
-    const res  = await fetch(BASE + '/api/users.php?action=add',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,email,phone,role,gender,dob})
-    });
-    const data = await res.json();
-    if (data.success) {
-      document.getElementById('gen-pass').textContent = data.system_password;
-      document.getElementById('pass-reveal').style.display='block';
-      ['u-name','u-email','u-phone','u-dob'].forEach(id=>document.getElementById(id).value='');
-    } else { showAlertEl('add-user-err', data.error||'Failed to create user'); }
-  } catch(e){ showAlertEl('add-user-err','Network error'); }
-  finally{ btn.disabled=false; btn.innerHTML='➕ Create User'; }
-}
-
-async function deleteUser(id, name) {
-  if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
-  await fetch(`${BASE}/api/users.php?action=delete&id=${id}`, {method:'POST'});
-  loadUsers();
-}
-
-function exportExcel() {
-  window.location.href = BASE + '/api/students.php?action=export';
-}
-
-// ─── HELPERS ──────────────────────────────────────────────
-function statusBadge(s) {
-  const map = {
-    accepted:'<span class="badge badge-green">✓ Accepted</span>',
-    rejected:'<span class="badge badge-red">✗ Rejected</span>',
-    pending:'<span class="badge badge-gray">⏳ Pending</span>',
-    callback:'<span class="badge badge-yellow">📅 Callback</span>',
-    in_progress:'<span class="badge badge-blue">📞 In Progress</span>',
-    other:'<span class="badge badge-yellow">📋 Other</span>',
-  };
-  return map[s] || `<span class="badge badge-gray">${s}</span>`;
-}
-function roleBadge(r) {
-  const map = {
-    admin:'<span class="badge badge-purple">Admin</span>',
-    telecaller:'<span class="badge badge-blue">Telecaller</span>',
-    office:'<span class="badge badge-green">Office</span>',
-  };
-  return map[r] || r;
-}
-function esc(s) { return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])) }
-
-function showAlert(id, msg, cls='alert-err') {
-  const el = document.getElementById(id);
-  el.className = 'alert show ' + cls;
-  el.textContent = msg;
-}
-function hideAlert(id) { document.getElementById(id).classList.remove('show') }
-function showAlertEl(id, msg) {
-  const el = document.getElementById(id);
-  el.className = 'alert show alert-err';
-  el.textContent = msg;
-}
-
-// ─── BULK UPLOAD ──────────────────────────────────────────
-function switchStudentTab(tab, btn) {
-  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('student-tab-single').style.display = tab==='single' ? '' : 'none';
-  document.getElementById('student-tab-bulk').style.display   = tab==='bulk'   ? '' : 'none';
-}
-
-function downloadTemplate() {
-  const csv = 'Name,Mobile,College Type,Present College,Address\n' +
-              'John Doe,9876543210,PU,ABC PU College,123 Main St\n' +
-              'Jane Smith,9876543211,Diploma,XYZ Polytechnic,456 Oak Ave';
-  const blob = new Blob([csv], {type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'students_template.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-let bulkData = [];
-
-async function previewBulkFile() {
-  const input = document.getElementById('bulk-file');
-  const file = input.files[0];
-  hideAlert('bulk-err'); hideAlert('bulk-ok');
-  document.getElementById('bulk-preview').style.display = 'none';
-  document.getElementById('bulk-upload-btn').disabled = true;
-
-  if (!file) return;
-
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (ext !== 'csv') {
-    showAlert('bulk-err','Please upload a CSV file. If you have Excel, save it as CSV first.');
-    return;
-  }
-
-  try {
-    const text = await file.text();
-    const rows = parseCSV(text);
-
-    if (!rows.length) { showAlert('bulk-err','File is empty'); return; }
-
-    // Auto-detect headers
-    const firstRow = rows[0].map(c=>String(c||'').toLowerCase());
-    const hasHeaders = firstRow.some(c=>c.includes('name')||c.includes('mobile')||c.includes('college'));
-    if (hasHeaders) rows.shift();
-
-    if (!rows.length) { showAlert('bulk-err','No data rows found after header'); return; }
-
-    // Validate
-    const validated = [];
-    for (let i=0; i<rows.length; i++) {
-      const r = rows[i];
-      const name = String(r[0]||'').trim();
-      const mobile = String(r[1]||'').trim();
-      const ctype = String(r[2]||'').trim() || 'Other';
-      const college = String(r[3]||'').trim();
-      const address = String(r[4]||'').trim();
-
-      if (!name || !mobile) continue;
-
-      if (!['PU','Diploma','Other'].includes(ctype)) {
-        showAlert('bulk-err',`Row ${i+1}: Invalid college type "${ctype}". Must be PU, Diploma, or Other`);
-        return;
-      }
-
-      validated.push({name, mobile, college_type:ctype, present_college:college, address});
-    }
-
-    if (!validated.length) { showAlert('bulk-err','No valid rows. Check Name and Mobile columns.'); return; }
-
-    bulkData = validated;
-
-    // Preview
-    const tbody = document.getElementById('bulk-preview-body');
-    tbody.innerHTML = validated.slice(0,5).map((s,i)=>`
-      <tr>
-        <td style="padding:.4rem .75rem;color:var(--muted)">${i+1}</td>
-        <td style="padding:.4rem .75rem">${esc(s.name)}</td>
-        <td style="padding:.4rem .75rem">${esc(s.mobile)}</td>
-        <td style="padding:.4rem .75rem"><span class="badge badge-blue">${s.college_type}</span></td>
-        <td style="padding:.4rem .75rem">${esc(s.present_college||'—')}</td>
-        <td style="padding:.4rem .75rem">${esc(s.address||'—')}</td>
-      </tr>`).join('');
-    
-    document.getElementById('bulk-stats').textContent = 
-      `Total students: ${validated.length} | Showing first ${Math.min(5,validated.length)} rows`;
-    document.getElementById('bulk-preview').style.display = '';
-    document.getElementById('bulk-upload-btn').disabled = false;
-
-  } catch(e) {
+  } catch (e) {
     console.error(e);
-    showAlert('bulk-err','Error reading file: ' + e.message);
+    grid.innerHTML = '<div style="color:var(--danger);padding:2rem;text-align:center">❌ Failed to load dashboard</div>';
   }
 }
 
-function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter(l=>l.trim());
-  return lines.map(line => {
-    // Simple CSV parser — handles quotes
-    const cells = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i=0; i<line.length; i++) {
-      const c = line[i];
-      if (c === '"') inQuotes = !inQuotes;
-      else if (c === ',' && !inQuotes) { cells.push(current); current = ''; }
-      else current += c;
-    }
-    cells.push(current);
-    return cells.map(c=>c.replace(/^"|"$/g,'').trim());
-  });
-}
+/* ───────────────── STUDENTS ───────────────── */
+async function loadStudents(){
+  const tbody = document.getElementById('students-tbody');
+  tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">Loading...</td></tr>';
 
-async function uploadBulk() {
-  if (!bulkData.length) return;
-  hideAlert('bulk-err'); hideAlert('bulk-ok');
-
-  const btn = document.getElementById('bulk-upload-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spin"></span>Uploading...';
-
-  try {
-    const res = await fetch(BASE + '/api/students.php?action=bulk_add', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({students: bulkData})
-    });
+  try{
+    const res = await fetch(BASE + '/api/students.php?action=list');
     const data = await res.json();
-    if (data.success) {
-      showAlert('bulk-ok',`✅ Successfully added ${data.added} students! Auto-assigned to telecallers.`,'alert-ok');
-      bulkData = [];
-      document.getElementById('bulk-file').value = '';
-      document.getElementById('bulk-preview').style.display = 'none';
-      setTimeout(()=>{ showPage('students'); loadStudents(); }, 2000);
-    } else {
-      showAlert('bulk-err', data.error || 'Upload failed');
+
+    if(!data.length){
+      tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No students found</td></tr>';
+      return;
     }
-  } catch(e) {
-    showAlert('bulk-err','Network error: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '📤 Upload Students';
+
+    tbody.innerHTML=data.map((s,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td><strong>${esc(s.name)}</strong></td>
+        <td>${esc(s.mobile)}</td>
+        <td>${esc(s.present_college||'—')}</td>
+        <td>${s.college_type||'—'}</td>
+        <td>${s.assigned_name||'Unassigned'}</td>
+        <td>${s.status||'pending'}</td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="viewStudentDetail(${s.id})">👁</button>
+        </td>
+      </tr>
+    `).join('');
+
+  }catch(e){
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--danger);padding:2rem">Failed to load</td></tr>';
   }
 }
 
-// ─── INIT ─────────────────────────────────────────────────
-// Init
+/* ───────────────── USERS ───────────────── */
+async function loadUsers(){
+  const tbody=document.getElementById('users-tbody');
+  tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">Loading...</td></tr>';
+
+  try{
+    const res=await fetch(BASE+'/api/users.php?action=list');
+    const data=await res.json();
+
+    if(!data.length){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No users</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML=data.map((u,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td>${esc(u.name)}</td>
+        <td>${esc(u.email)}</td>
+        <td>${esc(u.phone)}</td>
+        <td>${u.role}</td>
+        <td>${u.dob||'—'}</td>
+      </tr>
+    `).join('');
+  }catch(e){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:2rem">Failed to load</td></tr>';
+  }
+}
+
+/* ───────────────── HELPERS ───────────────── */
+function esc(s){
+  return String(s||'').replace(/[&<>"']/g,m=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+}
+
+/* ───────────────── INIT ───────────────── */
 loadDashboard();
+
 </script>
 </body>
 </html>
