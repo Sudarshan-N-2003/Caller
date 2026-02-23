@@ -916,6 +916,222 @@ function switchStudentTab(tab, el) {
     alert('Upload failed');
   }
 }
+const BASE = '<?php echo rtrim(BASE_URL, "/"); ?>';
+
+/* ================= HELPERS ================= */
+function esc(s){
+  return String(s||'').replace(/[&<>"']/g,m=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+}
+
+function showAlert(id,msg){
+  const el=document.getElementById(id);
+  el.textContent=msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+/* ================= ADD USER ================= */
+async function addUser(){
+  const btn=document.getElementById('add-user-btn');
+  btn.disabled=true;
+
+  const data={
+    name:document.getElementById('u-name').value.trim(),
+    email:document.getElementById('u-email').value.trim(),
+    phone:document.getElementById('u-phone').value.trim(),
+    role:document.getElementById('u-role').value,
+    gender:document.getElementById('u-gender').value,
+    dob:document.getElementById('u-dob').value
+  };
+
+  if(!data.name||!data.email||!data.phone||!data.dob){
+    alert("Fill all required fields");
+    btn.disabled=false;
+    return;
+  }
+
+  try{
+    const res=await fetch(BASE+'/api/users.php?action=add',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'include',
+      body:JSON.stringify(data)
+    });
+
+    const result=await res.json();
+
+    if(result.success){
+      alert("User Created");
+      document.getElementById('gen-pass').textContent=result.system_password;
+      document.getElementById('pass-reveal').style.display='block';
+      loadUsers();
+    }else{
+      alert(result.error||"Error");
+    }
+
+  }catch(e){
+    console.error(e);
+    alert("Server error");
+  }
+
+  btn.disabled=false;
+}
+
+/* ================= ADD STUDENT ================= */
+async function addStudent(){
+  const data={
+    name:document.getElementById('s-name').value.trim(),
+    mobile:document.getElementById('s-mobile').value.trim(),
+    college_type:document.getElementById('s-ctype').value,
+    present_college:document.getElementById('s-college').value,
+    address:document.getElementById('s-address').value
+  };
+
+  if(!data.name||!data.mobile){
+    alert("Name and Mobile required");
+    return;
+  }
+
+  try{
+    const res=await fetch(BASE+'/api/students.php?action=add',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'include',
+      body:JSON.stringify(data)
+    });
+
+    const result=await res.json();
+
+    if(result.success){
+      alert("Student Added");
+      loadStudents();
+    }else{
+      alert(result.error||"Error");
+    }
+
+  }catch(e){
+    console.error(e);
+    alert("Server error");
+  }
+}
+
+/* ================= LOAD STUDENTS ================= */
+async function loadStudents(){
+  const tbody=document.getElementById('students-tbody');
+  if(!tbody) return;
+
+  tbody.innerHTML='<tr><td colspan="9" style="text-align:center">Loading...</td></tr>';
+
+  try{
+    const res=await fetch(BASE+'/api/students.php?action=list',{
+      credentials:'include'
+    });
+    const data=await res.json();
+
+    if(!data.length){
+      tbody.innerHTML='<tr><td colspan="9" style="text-align:center">No students found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML=data.map((s,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td>${esc(s.name)}</td>
+        <td>${esc(s.mobile)}</td>
+        <td>${esc(s.present_college||'—')}</td>
+        <td>${esc(s.college_type||'—')}</td>
+        <td>${esc(s.assigned_name||'Unassigned')}</td>
+        <td>${esc(s.status||'pending')}</td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="viewStudent(${s.id})">View</button>
+        </td>
+      </tr>
+    `).join('');
+
+  }catch(e){
+    console.error(e);
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:red">Failed to load</td></tr>';
+  }
+}
+
+/* ================= LOAD USERS ================= */
+async function loadUsers(){
+  const tbody=document.getElementById('users-tbody');
+  if(!tbody) return;
+
+  tbody.innerHTML='<tr><td colspan="7" style="text-align:center">Loading...</td></tr>';
+
+  try{
+    const res=await fetch(BASE+'/api/users.php?action=list',{
+      credentials:'include'
+    });
+    const data=await res.json();
+
+    if(!data.length){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center">No users</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML=data.map((u,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td>${esc(u.name)}</td>
+        <td>${esc(u.email)}</td>
+        <td>${esc(u.phone)}</td>
+        <td>${esc(u.role)}</td>
+        <td>${esc(u.dob||'—')}</td>
+      </tr>
+    `).join('');
+
+  }catch(e){
+    console.error(e);
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:red">Failed to load</td></tr>';
+  }
+}
+
+/* ================= BULK UPLOAD ================= */
+async function uploadBulk(){
+  const file=document.getElementById('bulk-file').files[0];
+  if(!file){ alert("Select CSV file"); return; }
+
+  const formData=new FormData();
+  formData.append('file',file);
+
+  try{
+    const res=await fetch(BASE+'/api/students.php?action=bulk_add',{
+      method:'POST',
+      credentials:'include',
+      body:formData
+    });
+
+    const result=await res.json();
+
+    if(result.success){
+      alert("Bulk upload successful");
+      loadStudents();
+    }else{
+      alert(result.error||"Error");
+    }
+
+  }catch(e){
+    console.error(e);
+    alert("Server error");
+  }
+}
+
+/* ================= EXPORT ================= */
+function exportExcel(){
+  window.location.href=BASE+'/api/students.php?action=export';
+}
+
+/* ================= INIT ================= */
+document.addEventListener("DOMContentLoaded",()=>{
+  loadStudents();
+  loadUsers();
+});
+
 </script>
 </body>
 </html>
