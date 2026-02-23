@@ -882,6 +882,40 @@ function switchStudentTab(tab, el) {
 
   uploadBtn.disabled = false;
 }
+    async function uploadBulk() {
+  const fileInput = document.getElementById('bulk-file');
+  const file = fileInput.files[0];
+
+  if (!file) {
+    alert('Please select a file first.');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(BASE + '/api/students.php?action=bulk_add', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert('Students uploaded successfully!');
+      fileInput.value = '';
+      document.getElementById('bulk-upload-btn').disabled = true;
+    } else {
+      alert(data.error || 'Upload failed');
+    }
+
+  } catch (e) {
+    console.error(e);
+    alert('Upload failed');
+  }
+}
 </script>
 </body>
 </html>
