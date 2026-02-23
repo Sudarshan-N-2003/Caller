@@ -1,4 +1,4 @@
-<?php
+-<?php
 // pages/admin.php
 session_start();
 require_once __DIR__ . '/../includes/config.php';
@@ -614,280 +614,439 @@ select.form-input option{background:#0d1525}
 </div>
 
 <script>
+// ────────────────────────────────────────────────
+//   CONFIG & HELPERS
+// ────────────────────────────────────────────────
+
 const BASE = '<?php echo rtrim(BASE_URL, "/"); ?>';
 
-/* ================= API HELPER ================= */
-async function apiFetch(url, options = {}) {
-  const res = await fetch(url, {
-    credentials: 'include',
-    ...options
-  });
-
-  const text = await res.text();
-
-  if (!res.ok) {
-    throw new Error(text || 'Request failed');
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
-
-/* ================= ESCAPE ================= */
-function esc(s){
-  return String(s||'').replace(/[&<>"']/g,m=>({
-    '&':'&amp;',
-    '<':'&lt;',
-    '>':'&gt;',
-    '"':'&quot;',
-    "'":'&#39;'
+function esc(s) {
+  return String(s || '').replace(/[&<>"']/g, m => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
   }[m]));
 }
 
-/* ================= NAVIGATION ================= */
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    ...options
+  });
+
+  if (!res.ok) {
+    let errorText = await res.text().catch(() => '');
+    throw new Error(errorText || `HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+function showAlert(msg, type = 'info') {
+  // You can improve this later with proper toast / modal
+  alert(msg);
+  // Alternative: create temporary div / use library
+}
+
+// ────────────────────────────────────────────────
+//   NAVIGATION & UI
+// ────────────────────────────────────────────────
+
 const pageTitles = {
-  dashboard:'Dashboard',
-  'add-student':'Add Student',
-  students:'All Students',
-  'add-user':'Add User',
-  'view-users':'View Users'
+  dashboard:    'Dashboard',
+  'add-student': 'Add Student',
+  students:     'All Students',
+  'add-user':   'Add User',
+  'view-users': 'View Users'
 };
 
 function showPage(name) {
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-  document.getElementById('page-'+name)?.classList.add('active');
-  document.querySelector(`[data-page="${name}"]`)?.classList.add('active');
+  const page = document.getElementById('page-' + name);
+  if (page) page.classList.add('active');
+
+  const nav = document.querySelector(`[data-page="${name}"]`);
+  if (nav) nav.classList.add('active');
 
   document.getElementById('page-title').textContent = pageTitles[name] || name;
 
-  if(name==='dashboard') loadDashboard();
-  if(name==='students') loadStudents();
-  if(name==='view-users') loadUsers();
+  // Load data when needed
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'students')  loadStudents();
+  if (name === 'view-users') loadUsers();
+
+  closeSidebar();
 }
 
-/* ================= DASHBOARD ================= */
-async function loadDashboard(){
-  const grid=document.getElementById('tc-grid');
-  if(!grid) return;
+function toggleSidebar() {
+  document.getElementById('sidebar')?.classList.toggle('open');
+  document.getElementById('sidebar-overlay')?.classList.toggle('show');
+}
 
-  grid.innerHTML='Loading...';
+function closeSidebar() {
+  document.getElementById('sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.remove('show');
+}
 
-  try{
-    const summary = await apiFetch(BASE+'/api/students.php?action=summary');
-    const tcStats = await apiFetch(BASE+'/api/users.php?action=stats');
+function toggleProfilePopup() {
+  document.getElementById('profile-popup')?.classList.toggle('show');
+}
 
-    document.getElementById('s-total').textContent=summary.total||0;
-    document.getElementById('s-accepted').textContent=summary.accepted||0;
-    document.getElementById('s-rejected').textContent=summary.rejected||0;
-    document.getElementById('s-pending').textContent=summary.pending||0;
-    document.getElementById('s-callback').textContent=summary.callback||0;
-    document.getElementById('s-unassigned').textContent=summary.unassigned||0;
+// Close profile when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.profile-btn')) {
+    document.getElementById('profile-popup')?.classList.remove('show');
+  }
+});
 
-    if(!tcStats.length){
-      grid.innerHTML='No telecallers';
+async function doLogout() {
+  try {
+    await apiFetch(BASE + '/api/auth.php?action=logout', { method: 'POST' });
+    window.location.href = BASE + '/';
+  } catch (err) {
+    console.error(err);
+    showAlert('Logout failed');
+  }
+}
+
+// ────────────────────────────────────────────────
+//   DASHBOARD
+// ────────────────────────────────────────────────
+
+async function loadDashboard() {
+  const grid = document.getElementById('tc-grid');
+  if (!grid) return;
+
+  grid.innerHTML = '<div class="loading">Loading dashboard...</div>';
+
+  try {
+    const [summary, tcStats] = await Promise.all([
+      apiFetch(BASE + '/api/students.php?action=summary'),
+      apiFetch(BASE + '/api/users.php?action=stats')
+    ]);
+
+    // Update counters
+    document.getElementById('s-total')?.setAttribute('data-value', summary.total || 0);
+    document.getElementById('s-total')?.textContent     = summary.total     || 0;
+    document.getElementById('s-accepted')?.textContent  = summary.accepted  || 0;
+    document.getElementById('s-rejected')?.textContent  = summary.rejected  || 0;
+    document.getElementById('s-pending')?.textContent   = summary.pending   || 0;
+    document.getElementById('s-callback')?.textContent  = summary.callback  || 0;
+    document.getElementById('s-unassigned')?.textContent = summary.unassigned || 0;
+
+    if (!tcStats?.length) {
+      grid.innerHTML = '<div class="empty-state"><div class="ico">👥</div><p>No telecallers yet.</p></div>';
       return;
     }
 
-    grid.innerHTML=tcStats.map(tc=>{
-      const total=parseInt(tc.total_assigned)||0;
-      const accepted=parseInt(tc.accepted)||0;
-      const pct=total?Math.round((accepted/total)*100):0;
+    grid.innerHTML = tcStats.map(tc => {
+      const total    = Number(tc.total_assigned) || 0;
+      const accepted = Number(tc.accepted)       || 0;
+      const pct      = total ? Math.round((accepted / total) * 100) : 0;
 
       return `
         <div class="tc-card">
-          <div><strong>${esc(tc.name)}</strong></div>
-          <div>${esc(tc.email)}</div>
-          <div>Assigned: ${total}</div>
-          <div>Accepted: ${accepted}</div>
-          <div>${pct}% rate</div>
+          <div class="tc-header">
+            <div class="tc-name">${esc(tc.name)}</div>
+            <div class="tc-email">${esc(tc.email)}</div>
+          </div>
+          <div class="tc-stats">
+            <div class="tc-stat">
+              <div class="tc-stat-val" style="color:var(--accent)">${total}</div>
+              <div class="tc-stat-lbl">Assigned</div>
+            </div>
+            <div class="tc-stat">
+              <div class="tc-stat-val" style="color:var(--success)">${accepted}</div>
+              <div class="tc-stat-lbl">Accepted</div>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:${pct}%"></div>
+          </div>
+          <div class="progress-label">${pct}% acceptance rate</div>
         </div>`;
     }).join('');
 
-  }catch(e){
-    console.error(e);
-    grid.innerHTML='Failed to load dashboard';
+  } catch (err) {
+    console.error(err);
+    grid.innerHTML = '<div class="error">Failed to load dashboard</div>';
   }
 }
 
-/* ================= ADD USER ================= */
-async function addUser(){
-  const data={
-    name:uName.value.trim(),
-    email:uEmail.value.trim(),
-    phone:uPhone.value.trim(),
-    role:uRole.value,
-    gender:uGender.value,
-    dob:uDob.value
-  };
+// ────────────────────────────────────────────────
+//   STUDENTS – LIST
+// ────────────────────────────────────────────────
 
-  if(!data.name||!data.email||!data.phone||!data.dob){
-    alert("Fill all required fields");
-    return;
-  }
+async function loadStudents() {
+  const tbody = document.getElementById('students-tbody');
+  if (!tbody) return;
 
-  try{
-    const result=await apiFetch(BASE+'/api/users.php?action=add',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(data)
-    });
+  tbody.innerHTML = '<tr><td colspan="9" class="loading">Loading students...</td></tr>';
 
-    if(result.success){
-      alert("User Created");
-      document.getElementById('gen-pass').textContent=result.system_password;
-      document.getElementById('pass-reveal').style.display='block';
-      loadUsers();
-    }else{
-      alert(result.error||"Error");
-    }
+  try {
+    const data = await apiFetch(BASE + '/api/students.php?action=list');
 
-  }catch(e){
-    console.error(e);
-    alert("Server error");
-  }
-}
-
-/* ================= ADD STUDENT ================= */
-async function addStudent(){
-  const data={
-    name:sName.value.trim(),
-    mobile:sMobile.value.trim(),
-    college_type:sCtype.value,
-    present_college:sCollege.value,
-    address:sAddress.value
-  };
-
-  if(!data.name||!data.mobile){
-    alert("Name and Mobile required");
-    return;
-  }
-
-  try{
-    const result=await apiFetch(BASE+'/api/students.php?action=add',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(data)
-    });
-
-    if(result.success){
-      alert("Student Added");
-      loadStudents();
-    }else{
-      alert(result.error||"Error");
-    }
-
-  }catch(e){
-    console.error(e);
-    alert("Server error");
-  }
-}
-
-/* ================= LOAD STUDENTS ================= */
-async function loadStudents(){
-  const tbody=document.getElementById('students-tbody');
-  if(!tbody) return;
-
-  tbody.innerHTML='<tr><td colspan="9">Loading...</td></tr>';
-
-  try{
-    const data=await apiFetch(BASE+'/api/students.php?action=list');
-
-    if(!data.length){
-      tbody.innerHTML='<tr><td colspan="9">No students</td></tr>';
+    if (!data?.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty">No students found</td></tr>';
       return;
     }
 
-    tbody.innerHTML=data.map((s,i)=>`
+    tbody.innerHTML = data.map((s, i) => `
       <tr>
-        <td>${i+1}</td>
-        <td>${esc(s.name)}</td>
+        <td>${i + 1}</td>
+        <td><strong>${esc(s.name)}</strong></td>
         <td>${esc(s.mobile)}</td>
-        <td>${esc(s.present_college||'—')}</td>
-        <td>${esc(s.college_type||'—')}</td>
-        <td>${esc(s.assigned_name||'Unassigned')}</td>
-        <td>${esc(s.status||'pending')}</td>
-        <td></td>
+        <td>${esc(s.present_college || '—')}</td>
+        <td>${esc(s.college_type || '—')}</td>
+        <td>${esc(s.assigned_name || 'Unassigned')}</td>
+        <td>${esc(s.status || 'pending')}</td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="viewStudent(${s.id})">View</button>
+        </td>
       </tr>
     `).join('');
 
-  }catch(e){
-    console.error(e);
-    tbody.innerHTML='<tr><td colspan="9">Failed</td></tr>';
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = '<tr><td colspan="9" class="error">Failed to load students</td></tr>';
   }
 }
 
-/* ================= LOAD USERS ================= */
-async function loadUsers(){
-  const tbody=document.getElementById('users-tbody');
-  if(!tbody) return;
+function viewStudent(id) {
+  // TODO: implement student detail view / modal
+  alert(`View student #${id} (not implemented yet)`);
+}
 
-  tbody.innerHTML='<tr><td colspan="7">Loading...</td></tr>';
+// ────────────────────────────────────────────────
+//   USERS – LIST
+// ────────────────────────────────────────────────
 
-  try{
-    const data=await apiFetch(BASE+'/api/users.php?action=list');
+async function loadUsers() {
+  const tbody = document.getElementById('users-tbody');
+  if (!tbody) return;
 
-    if(!data.length){
-      tbody.innerHTML='<tr><td colspan="7">No users</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="loading">Loading users...</td></tr>';
+
+  try {
+    const data = await apiFetch(BASE + '/api/users.php?action=list');
+
+    if (!data?.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No users found</td></tr>';
       return;
     }
 
-    tbody.innerHTML=data.map((u,i)=>`
+    tbody.innerHTML = data.map((u, i) => `
       <tr>
-        <td>${i+1}</td>
+        <td>${i + 1}</td>
         <td>${esc(u.name)}</td>
         <td>${esc(u.email)}</td>
         <td>${esc(u.phone)}</td>
         <td>${esc(u.role)}</td>
-        <td>${esc(u.dob||'—')}</td>
+        <td>${esc(u.dob || '—')}</td>
+        <td><!-- actions --></td>
       </tr>
     `).join('');
 
-  }catch(e){
-    console.error(e);
-    tbody.innerHTML='<tr><td colspan="7">Failed</td></tr>';
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = '<tr><td colspan="7" class="error">Failed to load users</td></tr>';
   }
 }
 
-/* ================= BULK ================= */
-async function uploadBulk(){
-  const file=document.getElementById('bulk-file').files[0];
-  if(!file){ alert("Select CSV file"); return; }
+// ────────────────────────────────────────────────
+//   ADD STUDENT – SINGLE
+// ────────────────────────────────────────────────
 
-  const formData=new FormData();
-  formData.append('file',file);
+async function addStudent() {
+  const data = {
+    name:           document.getElementById('s-name')?.value.trim(),
+    mobile:         document.getElementById('s-mobile')?.value.trim(),
+    college_type:   document.getElementById('s-ctype')?.value,
+    present_college: document.getElementById('s-college')?.value.trim(),
+    address:        document.getElementById('s-address')?.value.trim()
+  };
 
-  try{
-    const result=await apiFetch(BASE+'/api/students.php?action=bulk_add',{
-      method:'POST',
-      body:formData
+  if (!data.name || !data.mobile) {
+    showAlert('Name and Mobile are required');
+    return;
+  }
+
+  try {
+    const result = await apiFetch(BASE + '/api/students.php?action=add', {
+      method: 'POST',
+      body: JSON.stringify(data)
     });
 
-    if(result.success){
-      alert("Bulk uploaded");
+    if (result.success) {
+      showAlert('Student added successfully');
       loadStudents();
-    }else{
-      alert(result.error||"Error");
+      // Optional: clear form
+    } else {
+      showAlert(result.error || 'Failed to add student');
     }
-
-  }catch(e){
-    console.error(e);
-    alert("Server error");
+  } catch (err) {
+    console.error(err);
+    showAlert('Server error');
   }
 }
 
-/* ================= EXPORT ================= */
-function exportExcel(){
-  window.location.href=BASE+'/api/students.php?action=export';
+// ────────────────────────────────────────────────
+//   BULK STUDENT UPLOAD
+// ────────────────────────────────────────────────
+
+function downloadTemplate() {
+  const headers = ['Name','Mobile','College Type','Present College','Address'];
+  const sample = [
+    ['Rahul Kumar','9876543210','PU','ABC PU College','Bangalore'],
+    ['Anjali Sharma','9123456780','Diploma','XYZ Polytechnic','Mysore']
+  ];
+
+  let csv = headers.join(',') + '\n';
+  sample.forEach(row => csv += row.join(',') + '\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'student_template.csv';
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
-/* ================= INIT ================= */
-document.addEventListener("DOMContentLoaded",()=>{
+function previewBulkFile() {
+  const fileInput = document.getElementById('bulk-file');
+  const btn = document.getElementById('bulk-upload-btn');
+  if (!fileInput?.files?.length) {
+    btn.disabled = true;
+    return;
+  }
+
+  const file = fileInput.files[0];
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    showAlert('Please upload a .csv file only');
+    fileInput.value = '';
+    btn.disabled = true;
+    return;
+  }
+
+  btn.disabled = false;
+}
+
+async function uploadBulk() {
+  const file = document.getElementById('bulk-file')?.files?.[0];
+  if (!file) {
+    showAlert('Please select a CSV file');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const result = await fetch(BASE + '/api/students.php?action=bulk_add', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    }).then(r => r.json());
+
+    if (result.success) {
+      showAlert('Bulk upload successful');
+      document.getElementById('bulk-file').value = '';
+      document.getElementById('bulk-upload-btn').disabled = true;
+      loadStudents();
+    } else {
+      showAlert(result.error || 'Upload failed');
+    }
+  } catch (err) {
+    console.error(err);
+    showAlert('Server error during bulk upload');
+  }
+}
+
+// ────────────────────────────────────────────────
+//   ADD USER
+// ────────────────────────────────────────────────
+
+async function addUser() {
+  const btn = document.getElementById('add-user-btn');
+  if (btn) btn.disabled = true;
+
+  const data = {
+    name:   document.getElementById('u-name')?.value.trim(),
+    email:  document.getElementById('u-email')?.value.trim(),
+    phone:  document.getElementById('u-phone')?.value.trim(),
+    role:   document.getElementById('u-role')?.value,
+    gender: document.getElementById('u-gender')?.value,
+    dob:    document.getElementById('u-dob')?.value
+  };
+
+  if (!data.name || !data.email || !data.phone || !data.dob) {
+    showAlert('Please fill all required fields');
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  try {
+    const result = await apiFetch(BASE + '/api/users.php?action=add', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+
+    if (result.success) {
+      showAlert('User created successfully');
+      const passEl = document.getElementById('gen-pass');
+      if (passEl) {
+        passEl.textContent = result.system_password || '(password hidden)';
+        document.getElementById('pass-reveal')?.style.setProperty('display', 'block');
+      }
+      loadUsers();
+    } else {
+      showAlert(result.error || 'Failed to create user');
+    }
+  } catch (err) {
+    console.error(err);
+    showAlert('Server error');
+  }
+
+  if (btn) btn.disabled = false;
+}
+
+// ────────────────────────────────────────────────
+//   STUDENT TAB SWITCH (Add Student page)
+// ────────────────────────────────────────────────
+
+function switchStudentTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+
+  document.getElementById('student-tab-single').style.display = tab === 'single' ? 'block' : 'none';
+  document.getElementById('student-tab-bulk')  .style.display = tab === 'bulk'  ? 'block' : 'none';
+}
+
+// ────────────────────────────────────────────────
+//   EXPORT STUDENTS
+// ────────────────────────────────────────────────
+
+function exportExcel() {
+  window.location.href = BASE + '/api/students.php?action=export';
+}
+
+// ────────────────────────────────────────────────
+//   INITIALIZATION
+// ────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Load default page (usually dashboard)
   loadDashboard();
+
+  // Optional: load other lists if already on those pages
+  if (document.getElementById('students-tbody'))  loadStudents();
+  if (document.getElementById('users-tbody'))     loadUsers();
 });
 </script>
 </body>
