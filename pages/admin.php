@@ -106,7 +106,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 select.form-input option{background:#0d1525}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:500;display:none;align-items:center;justify-content:center}
 .modal-bg.show{display:flex}
-.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);width:90%;max-width:500px;max-height:90vh;overflow-y:auto;animation:fadeIn .2s}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);width:90%;max-width:600px;max-height:90vh;overflow-y:auto;animation:fadeIn .2s}
 .modal-hdr{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .modal-hdr h3{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:700}
 .modal-close{background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1;padding:.2rem .4rem;border-radius:4px}
@@ -137,8 +137,11 @@ select.form-input option{background:#0d1525}
 @keyframes rot{to{transform:rotate(360deg)}}
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--muted)}
 .empty-state .ico{font-size:2.5rem;margin-bottom:.75rem}
-@media(max-width:768px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.sidebar-overlay.show{display:block}.main{margin-left:0}.topbar{left:0}.hamburger{display:block}.stats-grid{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:1fr}.form-full{grid-column:1}.modal{max-height:95vh}.topbar-right .profile-name{display:none}}
-@media(max-width:480px){.stats-grid{grid-template-columns:1fr 1fr}.tc-grid{grid-template-columns:1fr}table{font-size:.78rem}th,td{padding:.5rem .6rem}}
+.detail-row{display:flex;padding:.75rem 0;border-bottom:1px solid var(--border)}
+.detail-row:last-child{border-bottom:none}
+.detail-label{width:140px;font-weight:600;color:var(--muted);font-size:.85rem}
+.detail-value{flex:1;color:var(--text)}
+@media(max-width:768px){.sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.sidebar-overlay.show{display:block}.main{margin-left:0}.topbar{left:0}.hamburger{display:block}.stats-grid{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:1fr}.form-full{grid-column:1}.modal{max-width:95%;max-height:95vh}.topbar-right .profile-name{display:none}}
 </style>
 </head>
 <body>
@@ -188,7 +191,6 @@ select.form-input option{background:#0d1525}
 
 <main class="main">
 
-<!-- DASHBOARD -->
 <div id="page-dashboard" class="page active">
   <div class="stats-grid">
     <div class="stat-card blue"><div class="stat-label">Total Students</div><div class="stat-val" id="s-total">—</div></div>
@@ -205,7 +207,6 @@ select.form-input option{background:#0d1525}
   <div class="tc-grid" id="tc-grid"><div style="color:var(--muted);padding:1rem">Loading...</div></div>
 </div>
 
-<!-- ADD STUDENT -->
 <div id="page-add-student" class="page">
   <div style="max-width:900px">
     <div class="tab-nav" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;margin-bottom:0">
@@ -213,20 +214,13 @@ select.form-input option{background:#0d1525}
       <div class="tab" onclick="switchStudentTab('bulk',this)">📄 Bulk CSV</div>
     </div>
 
-    <!-- Single -->
     <div id="student-tab-single" class="table-wrap" style="border-radius:0 0 var(--radius) var(--radius);margin-top:0">
       <div style="padding:1.5rem">
         <div class="alert alert-err" id="add-student-err"></div>
         <div class="alert alert-ok" id="add-student-ok"></div>
         <div class="form-grid">
-          <div class="form-group form-full">
-            <label class="form-label">Name *</label>
-            <input class="form-input" id="s-name">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Mobile *</label>
-            <input class="form-input" id="s-mobile">
-          </div>
+          <div class="form-group form-full"><label class="form-label">Name *</label><input class="form-input" id="s-name"></div>
+          <div class="form-group"><label class="form-label">Mobile *</label><input class="form-input" id="s-mobile"></div>
           <div class="form-group">
             <label class="form-label">College Type</label>
             <select class="form-input" id="s-ctype">
@@ -235,14 +229,8 @@ select.form-input option{background:#0d1525}
               <option value="Other">Other</option>
             </select>
           </div>
-          <div class="form-group form-full">
-            <label class="form-label">Present College</label>
-            <input class="form-input" id="s-college">
-          </div>
-          <div class="form-group form-full">
-            <label class="form-label">Address</label>
-            <input class="form-input" id="s-address">
-          </div>
+          <div class="form-group form-full"><label class="form-label">Present College</label><input class="form-input" id="s-college"></div>
+          <div class="form-group form-full"><label class="form-label">Address</label><input class="form-input" id="s-address"></div>
         </div>
         <div style="margin-top:1rem;display:flex;gap:.75rem">
           <button class="btn btn-primary" onclick="addStudent()">➕ Add</button>
@@ -251,23 +239,19 @@ select.form-input option{background:#0d1525}
       </div>
     </div>
 
-    <!-- Bulk -->
     <div id="student-tab-bulk" class="table-wrap" style="border-radius:0 0 var(--radius) var(--radius);margin-top:0;display:none">
       <div style="padding:1.5rem">
         <div class="alert alert-err" id="bulk-err"></div>
         <div class="alert alert-ok" id="bulk-ok"></div>
-        <p style="margin-bottom:1rem;color:var(--muted);font-size:.85rem">
-          Upload CSV with columns: Name, Mobile, College Type, Present College, Address
-        </p>
-        <button class="btn btn-outline btn-sm" onclick="downloadTemplate()" style="margin-bottom:1rem">⬇️ Template</button>
+        <p style="margin-bottom:1rem;color:var(--muted);font-size:.85rem">CSV columns: Name, Mobile, College Type, Present College, Address</p>
+        <button class="btn btn-outline btn-sm" onclick="downloadTemplate()" style="margin-bottom:1rem">⬇️ Download Template</button>
         <input type="file" id="bulk-file" accept=".csv" style="display:block;margin-bottom:1rem" onchange="previewBulkFile()">
-        <button class="btn btn-success" id="bulk-upload-btn" onclick="uploadBulk()" disabled>📤 Upload</button>
+        <button class="btn btn-success" id="bulk-upload-btn" onclick="uploadBulk()" disabled>📤 Upload Students</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ALL STUDENTS -->
 <div id="page-students" class="page">
   <div class="table-wrap">
     <div class="table-filters">
@@ -276,18 +260,13 @@ select.form-input option{background:#0d1525}
     </div>
     <div style="overflow-x:auto">
       <table>
-        <thead>
-          <tr><th>#</th><th>Name</th><th>Mobile</th><th>College</th><th>Type</th><th>Assigned</th><th>Status</th><th>Actions</th></tr>
-        </thead>
-        <tbody id="students-tbody">
-          <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">Loading...</td></tr>
-        </tbody>
+        <thead><tr><th>#</th><th>Name</th><th>Mobile</th><th>College</th><th>Type</th><th>Assigned</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="students-tbody"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
 </div>
 
-<!-- ADD USER -->
 <div id="page-add-user" class="page">
   <div style="max-width:600px">
     <div class="table-wrap">
@@ -326,7 +305,6 @@ select.form-input option{background:#0d1525}
   </div>
 </div>
 
-<!-- VIEW USERS -->
 <div id="page-view-users" class="page">
   <div class="table-wrap">
     <div class="table-filters">
@@ -345,10 +323,22 @@ select.form-input option{background:#0d1525}
 </main>
 </div>
 
+<!-- Student Detail Modal -->
+<div class="modal-bg" id="student-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3>Student Details</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="student-detail-body">
+      <p style="color:var(--muted)">Loading...</p>
+    </div>
+  </div>
+</div>
+
 <script>
 const BASE = '<?= rtrim(BASE_URL, "/") ?>';
 
-// ──── HELPERS ────────────────────────────────────
 function esc(s) {
   return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
@@ -368,7 +358,7 @@ function hideAlert(id) {
 }
 
 function statusBadge(status) {
-  const colors = {accepted:'green',rejected:'red',pending:'yellow',callback:'purple'};
+  const colors = {accepted:'green',rejected:'red',pending:'yellow',callback:'purple',in_progress:'blue'};
   return `<span class="badge badge-${colors[status]||'gray'}">${status||'—'}</span>`;
 }
 
@@ -377,7 +367,6 @@ function roleBadge(role) {
   return `<span class="badge badge-${colors[role]||'gray'}">${role||'—'}</span>`;
 }
 
-// ──── NAVIGATION ─────────────────────────────────
 const pageTitles = {dashboard:'Dashboard','add-student':'Add Student',students:'All Students','add-user':'Add User','view-users':'View Users'};
 
 function showPage(name) {
@@ -421,7 +410,6 @@ async function doLogout() {
   }
 }
 
-// ──── DASHBOARD ──────────────────────────────────
 async function loadDashboard() {
   const grid = document.getElementById('tc-grid');
   grid.innerHTML = '<div style="padding:2rem;color:var(--muted)">⏳ Loading...</div>';
@@ -461,7 +449,6 @@ async function loadDashboard() {
   }
 }
 
-// ──── STUDENTS ───────────────────────────────────
 async function loadStudents() {
   const tbody = document.getElementById('students-tbody');
   tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">⏳ Loading...</td></tr>';
@@ -474,12 +461,12 @@ async function loadStudents() {
     tbody.innerHTML = data.map((s,i) => `<tr>
       <td>${i+1}</td>
       <td><strong>${esc(s.name)}</strong></td>
-      <td>${esc(s.mobile)}</td>
-      <td>${esc(s.present_college||'—')}</td>
+      <td><a href="tel:${esc(s.mobile)}" style="color:var(--accent)">${esc(s.mobile)}</a></td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc(s.present_college||'—')}</td>
       <td>${esc(s.college_type||'—')}</td>
-      <td>${esc(s.assigned_name||'Unassigned')}</td>
+      <td>${esc(s.assigned_name||'<span class="badge badge-gray">Unassigned</span>')}</td>
       <td>${statusBadge(s.status)}</td>
-      <td><button class="btn btn-outline btn-sm">👁</button></td>
+      <td><button class="btn btn-outline btn-sm" onclick="viewStudentDetail(${s.id})">👁 View</button></td>
     </tr>`).join('');
   } catch(e) {
     console.error(e);
@@ -487,7 +474,41 @@ async function loadStudents() {
   }
 }
 
-// ──── USERS ──────────────────────────────────────
+async function viewStudentDetail(id) {
+  const modal = document.getElementById('student-modal');
+  const body = document.getElementById('student-detail-body');
+  body.innerHTML = '<p style="color:var(--muted)">⏳ Loading student details...</p>';
+  modal.classList.add('show');
+  
+  try {
+    const res = await fetch(BASE + `/api/students.php?action=detail&id=${id}`, {credentials:'include'});
+    const student = await res.json();
+    
+    if (student.error) {
+      body.innerHTML = `<p style="color:var(--danger)">❌ ${esc(student.error)}</p>`;
+      return;
+    }
+    
+    body.innerHTML = `
+      <div class="detail-row"><div class="detail-label">Name</div><div class="detail-value"><strong>${esc(student.name)}</strong></div></div>
+      <div class="detail-row"><div class="detail-label">Mobile</div><div class="detail-value"><a href="tel:${esc(student.mobile)}" style="color:var(--accent)">${esc(student.mobile)}</a></div></div>
+      <div class="detail-row"><div class="detail-label">College Type</div><div class="detail-value">${statusBadge(student.college_type)}</div></div>
+      <div class="detail-row"><div class="detail-label">Present College</div><div class="detail-value">${esc(student.present_college||'—')}</div></div>
+      <div class="detail-row"><div class="detail-label">Address</div><div class="detail-value">${esc(student.address||'—')}</div></div>
+      <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value">${statusBadge(student.status)}</div></div>
+      <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value">${esc(student.assigned_name||'<span class="badge badge-gray">Unassigned</span>')}</div></div>
+      <div class="detail-row"><div class="detail-label">Created</div><div class="detail-value">${esc(student.created_at||'—')}</div></div>
+    `;
+  } catch(e) {
+    console.error(e);
+    body.innerHTML = '<p style="color:var(--danger)">❌ Failed to load student details</p>';
+  }
+}
+
+function closeModal() {
+  document.getElementById('student-modal').classList.remove('show');
+}
+
 async function loadUsers() {
   const tbody = document.getElementById('users-tbody');
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">⏳ Loading...</td></tr>';
@@ -511,7 +532,6 @@ async function loadUsers() {
   }
 }
 
-// ──── ADD STUDENT ────────────────────────────────
 async function addStudent() {
   hideAlert('add-student-err');
   hideAlert('add-student-ok');
@@ -554,9 +574,8 @@ function clearStudentForm() {
   document.getElementById('s-address').value = '';
 }
 
-// ──── BULK CSV ───────────────────────────────────
 function downloadTemplate() {
-  const csv = 'Name,Mobile,College Type,Present College,Address\nRahul,9876543210,PU,ABC College,Bangalore';
+  const csv = 'Name,Mobile,College Type,Present College,Address\nRahul Kumar,9876543210,PU,ABC College,Bangalore\nPriya Sharma,9123456789,Diploma,XYZ Polytechnic,Mysore';
   const blob = new Blob([csv], {type:'text/csv'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -573,52 +592,99 @@ function previewBulkFile() {
 
 async function uploadBulk() {
   const file = document.getElementById('bulk-file').files[0];
-  if (!file) return;
-  hideAlert('bulk-err');
-  hideAlert('bulk-ok');
-  
-  const text = await file.text();
-  const rows = text.split('\n').map(line => line.split(','));
-  
-  // Skip header if exists
-  if (rows[0].some(c=>c.toLowerCase().includes('name'))) rows.shift();
-  
-  const students = rows.filter(r=>r[0]&&r[1]).map(r => ({
-    name: r[0].trim(),
-    mobile: r[1].trim(),
-    college_type: r[2]?.trim()||'Other',
-    present_college: r[3]?.trim()||'',
-    address: r[4]?.trim()||''
-  }));
-  
-  if (!students.length) {
-    showAlert('bulk-err', 'No valid rows found');
+  if (!file) {
+    showAlert('bulk-err', 'Please select a CSV file');
     return;
   }
   
+  hideAlert('bulk-err');
+  hideAlert('bulk-ok');
+  
   try {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    
+    if (!lines.length) {
+      showAlert('bulk-err', 'File is empty');
+      return;
+    }
+    
+    // Parse CSV (simple parser - handles basic quoted values)
+    const parseCSVLine = (line) => {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+    
+    const rows = lines.map(parseCSVLine);
+    
+    // Skip header if detected
+    if (rows[0].some(cell => cell.toLowerCase().includes('name') || cell.toLowerCase().includes('mobile'))) {
+      rows.shift();
+    }
+    
+    // Convert to student objects
+    const students = rows.filter(r => r[0] && r[1]).map(r => ({
+      name: r[0],
+      mobile: r[1],
+      college_type: (r[2] && ['PU', 'Diploma', 'Other'].includes(r[2])) ? r[2] : 'Other',
+      present_college: r[3] || '',
+      address: r[4] || ''
+    }));
+    
+    if (!students.length) {
+      showAlert('bulk-err', 'No valid student data found. Check CSV format.');
+      return;
+    }
+    
+    const btn = document.getElementById('bulk-upload-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>Uploading...';
+    
     const res = await fetch(BASE + '/api/students.php?action=bulk_add', {
-      method:'POST',
-      credentials:'include',
-      headers:{'Content-Type':'application/json'},
+      method: 'POST',
+      credentials: 'include',
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({students})
     });
+    
     const result = await res.json();
+    
     if (result.success) {
-      showAlert('bulk-ok', `✅ Added ${result.added} students`);
+      showAlert('bulk-ok', `✅ Successfully uploaded ${result.added} students!`);
       document.getElementById('bulk-file').value = '';
-      document.getElementById('bulk-upload-btn').disabled = true;
-      loadStudents();
+      btn.disabled = true;
+      btn.innerHTML = '📤 Upload Students';
+      setTimeout(() => {
+        showPage('students');
+      }, 2000);
     } else {
       showAlert('bulk-err', result.error || 'Upload failed');
+      btn.disabled = false;
+      btn.innerHTML = '📤 Upload Students';
     }
   } catch(e) {
     console.error(e);
-    showAlert('bulk-err', 'Server error');
+    showAlert('bulk-err', 'Error: ' + e.message);
+    document.getElementById('bulk-upload-btn').disabled = false;
+    document.getElementById('bulk-upload-btn').innerHTML = '📤 Upload Students';
   }
 }
 
-// ──── ADD USER ───────────────────────────────────
 async function addUser() {
   hideAlert('add-user-err');
   const data = {
@@ -654,7 +720,6 @@ async function addUser() {
   }
 }
 
-// ──── TAB SWITCH ─────────────────────────────────
 function switchStudentTab(tab, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
@@ -662,12 +727,10 @@ function switchStudentTab(tab, el) {
   document.getElementById('student-tab-bulk').style.display = tab==='bulk' ? 'block' : 'none';
 }
 
-// ──── EXPORT ─────────────────────────────────────
 function exportExcel() {
   window.location.href = BASE + '/api/students.php?action=export';
 }
 
-// ──── INIT ───────────────────────────────────────
 loadDashboard();
 </script>
 </body>
