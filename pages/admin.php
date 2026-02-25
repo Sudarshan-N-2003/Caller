@@ -515,7 +515,50 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-loadDashboard();
+
+    async function viewStudentDetail(id) {
+  // ... existing code ...
+  try {
+    const res = await fetch(BASE + `/api/students.php?action=detail&id=${id}`, {credentials:'include'});
+    
+    console.log("Detail fetch status:", res.status);           // ← add this
+    console.log("Detail response headers:", [...res.headers]); // ← add this
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.log("Non-OK response body:", text);             // ← add this
+      throw new Error(`HTTP ${res.status} - ${text.substring(0,100)}`);
+    }
+
+    const student = await res.json();
+    console.log("Parsed student data:", student);             // ← add this
+    // ... rest of code
+  } catch(e) {
+    console.error("Detail fetch failed:", e);
+    body.innerHTML = `<p style="color:var(--danger)">❌ Failed: ${e.message}</p>`;
+  }
+}
+    async function loadUsers() {
+  // ... existing
+  try {
+    const res = await fetch(BASE + '/api/users.php?action=list', {credentials:'include'});
+    
+    console.log("Users list status:", res.status);
+    if (!res.ok) {
+      const text = await res.text();
+      console.log("Users non-OK body:", text);
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    console.log("Users data:", data);
+    // ... rest
+  } catch(e) {
+    console.error("Users load failed:", e);
+    tbody.innerHTML = `<tr><td colspan="6">❌ Failed: ${e.message}</td></tr>`;
+  }
+}
+    loadDashboard();
 </script>
 </body>
 </html>
