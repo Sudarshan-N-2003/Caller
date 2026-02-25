@@ -458,107 +458,432 @@ async function loadDashboard() {
   }
 }
 
-// loadStudents, viewStudentDetail, loadUsers, addStudent, clearStudentForm, downloadTemplate
-// ↑ keep your existing versions of these functions (they are correct)
-
-function previewBulkFile() {
-  console.log("previewBulkFile triggered");
-  const input = document.getElementById('bulk-file');
-  const btn   = document.getElementById('bulk-upload-btn');
-  if (!input || !btn) {
-    console.error("bulk-file or bulk-upload-btn missing");
-    return;
-  }
-  const file = input.files[0];
-  console.log("File:", file ? file.name : "none");
-  btn.disabled = !(file && file.name.toLowerCase().endsWith('.csv'));
-  console.log("Button enabled?", !btn.disabled);
-}
-
-function switchStudentTab(tab, el) {
-  console.log("switchStudentTab called → tab:", tab);
-
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  if (el) el.classList.add('active');
-
-  const singleTab = document.getElementById('student-tab-single');
-  const bulkTab   = document.getElementById('student-tab-bulk');
-
-  if (!singleTab || !bulkTab) {
-    console.error("One or both tab contents missing!", {single: !!singleTab, bulk: !!bulkTab});
-    return;
-  }
-
-  singleTab.style.display = 'none';
-  bulkTab.style.display   = 'none';
-
-  if (tab === 'single') {
-    singleTab.style.display = 'block';
-  } else if (tab === 'bulk') {
-    bulkTab.style.display = 'block';
-    console.log("Bulk tab forced visible");
-    hideAlert('bulk-err');
-    hideAlert('bulk-ok');
-    const errEl = document.getElementById('bulk-err');
-    if (errEl) errEl.textContent = '';
-  }
-}
-
-// Keep your uploadBulk(), addUser(), exportExcel(), deleteUser() functions as they are
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.alert').forEach(el => {
-    if (el.textContent.includes('Unknown action')) {
-      el.style.display = 'none';
-      el.classList.remove('show');
+async function loadStudents() {
+  const tbody = document.getElementById('students-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">⏳ Loading...</td></tr>';
+  try {
+    const data = await fetch(BASE + '/api/students.php?action=list', {credentials:'include'}).then(r => r.json());
+    if (!data || !data.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">No students found</td></tr>';
+      return;
     }
-  });
-});
+    tbody.innerHTML = data.map((s, i) => {
+      let assignedDisplay = s.assigned_name
+        ? esc(s.assigned_name)
+        : '<span class="badge badge-gray">Unassigned</span>';
+      return `
+        <tr>
+          <td>${i+1}</td>
+          <td><strong>${esc(s.name || '—')}</strong></td>
+          <td><a href="tel:${esc(s.mobile || '')}" style="color:var(--accent)">${esc(s.mobile || '—')}</a></td>
+          <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc(s.present_college || '—')}</td>
+          <td>${esc(s.college_type || '—')}</td>
+          <td>${assignedDisplay}</td>
+          <td>${statusBadge(s.status)}</td>
+          <td><button class="btn btn-outline btn-sm" onclick="viewStudentDetail(${s.id})">👁 View</button></td>
+        </tr>
+      `;
+    }).join('');
+  } catch(e) {
+    console.error(e);
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--danger)">❌ Failed to load students</td></tr>';
+  }
+}
 
-
-    async function viewStudentDetail(id) {
-  // ... existing code ...
+async function viewStudentDetail(id) {
+  const modal = document.getElementById('student-modal');
+  const body = document.getElementById('student-detail-body');
+  body.innerHTML = '<p style="color:var(--muted)">⏳ Loading student details...</p>';
+  modal.classList.add('show');
   try {
     const res = await fetch(BASE + `/api/students.php?action=detail&id=${id}`, {credentials:'include'});
-    
-    console.log("Detail fetch status:", res.status);           // ← add this
-    console.log("Detail response headers:", [...res.headers]); // ← add this
-
+   
     if (!res.ok) {
-      const text = await res.text();
-      console.log("Non-OK response body:", text);             // ← add this
-      throw new Error(`HTTP ${res.status} - ${text.substring(0,100)}`);
+      throw new Error(`HTTP ${res.status}`);
     }
-
     const student = await res.json();
-    console.log("Parsed student data:", student);             // ← add this
-    // ... rest of code
+    if (student.error) {
+      body.innerHTML = `<p style="color:var(--danger)">❌ ${esc(student.error)}</p>`;
+      return;
+    }
+    if (!student || !student.id) {
+      body.innerHTML = `<p style="color:var(--warn)">⚠️ Student not found or invalid response</p>`;
+      return;
+    }
+    body.innerHTML = `
+      <div class="detail-row">
+        <div class="detail-label">Name</div>
+        <div class="detail-value"><strong>${esc(student?.name || '—')}</strong></div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Mobile</div>
+        <div class="detail-value">
+          ${student?.mobile
+            ? `<a href="tel:${esc(student.mobile)}" style="color:var(--accent)">${esc(student.mobile)}</a>`
+            : '—'}
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">College Type</div>
+        <div class="detail-value">${esc(student?.college_type || '—')}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Present College</div>
+        <div class="detail-value">${esc(student?.present_college || '—')}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Address</div>
+        <div class="detail-value">${esc(student?.address || '—')}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Status</div>
+        <div class="detail-value">${statusBadge(student?.status)}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Assigned To</div>
+        <div class="detail-value">
+          ${student?.assigned_name
+            ? esc(student.assigned_name)
+            : '<span class="badge badge-gray">Unassigned</span>'}
+        </div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Created</div>
+        <div class="detail-value">${esc(student?.created_at || '—')}</div>
+      </div>
+    `;
   } catch(e) {
-    console.error("Detail fetch failed:", e);
-    body.innerHTML = `<p style="color:var(--danger)">❌ Failed: ${e.message}</p>`;
+    console.error(e);
+    body.innerHTML = '<p style="color:var(--danger)">❌ Failed to load student details</p>';
   }
 }
-    async function loadUsers() {
-  // ... existing
+
+function closeModal() {
+  document.getElementById('student-modal').classList.remove('show');
+}
+
+// IMPROVED VERSION: Merged with better error handling
+async function loadUsers() {
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">⏳ Loading...</td></tr>';
+  
   try {
     const res = await fetch(BASE + '/api/users.php?action=list', {credentials:'include'});
     
     console.log("Users list status:", res.status);
+    
     if (!res.ok) {
       const text = await res.text();
       console.log("Users non-OK body:", text);
-      throw new Error(`HTTP ${res.status}`);
+      throw new Error(`HTTP ${res.status} - ${text.substring(0, 100)}`);
     }
 
     const data = await res.json();
     console.log("Users data:", data);
-    // ... rest
+    
+    if (!data || !data.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">No users found</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = data.map((u,i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td>${esc(u.name)}</td>
+        <td>${esc(u.email)}</td>
+        <td>${esc(u.phone)}</td>
+        <td>${roleBadge(u.role)}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${esc(u.name)}')">🗑 Delete</button>
+        </td>
+      </tr>
+    `).join('');
+    
   } catch(e) {
     console.error("Users load failed:", e);
-    tbody.innerHTML = `<tr><td colspan="6">❌ Failed: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--danger)">❌ Failed: ${esc(e.message)}</td></tr>`;
   }
 }
-    loadDashboard();
+
+async function addStudent() {
+  hideAlert('add-student-err');
+  hideAlert('add-student-ok');
+  const data = {
+    name: document.getElementById('s-name').value.trim(),
+    mobile: document.getElementById('s-mobile').value.trim(),
+    college_type: document.getElementById('s-ctype').value,
+    present_college: document.getElementById('s-college').value.trim(),
+    address: document.getElementById('s-address').value.trim()
+  };
+  if (!data.name || !data.mobile) {
+    showAlert('add-student-err', 'Name and Mobile required');
+    return;
+  }
+  try {
+    const res = await fetch(BASE + '/api/students.php?action=add', {
+      method:'POST',
+      credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (result.success) {
+      showAlert('add-student-ok', '✅ Student added');
+      clearStudentForm();
+      loadStudents();
+    } else {
+      showAlert('add-student-err', result.error || 'Failed');
+    }
+  } catch(e) {
+    console.error(e);
+    showAlert('add-student-err', 'Server error');
+  }
+}
+
+function clearStudentForm() {
+  document.getElementById('s-name').value = '';
+  document.getElementById('s-mobile').value = '';
+  document.getElementById('s-college').value = '';
+  document.getElementById('s-address').value = '';
+}
+
+function downloadTemplate() {
+  const csv = 'Name,Mobile,College Type,Present College,Address\nRahul Kumar,9876543210,PU,ABC College,Bangalore\nPriya Sharma,9123456789,Diploma,XYZ Polytechnic,Mysore';
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'students_template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function previewBulkFile() {
+  console.log("previewBulkFile() was called");
+  const input = document.getElementById('bulk-file');
+  const btn = document.getElementById('bulk-upload-btn');
+  if (!input) {
+    console.error("File input #bulk-file not found in DOM");
+    return;
+  }
+  const file = input.files[0];
+  console.log("Selected file:", file ? file.name : "no file");
+  if (!btn) {
+    console.error("Button #bulk-upload-btn not found");
+    return;
+  }
+  const shouldEnable = file && file.name.toLowerCase().endsWith('.csv');
+  btn.disabled = !shouldEnable;
+  console.log("Button enabled?", shouldEnable);
+}
+
+async function uploadBulk() {
+  const file = document.getElementById('bulk-file').files[0];
+  if (!file) {
+    showAlert('bulk-err', 'Please select a CSV file');
+    return;
+  }
+ 
+  hideAlert('bulk-err');
+  hideAlert('bulk-ok');
+ 
+  try {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+   
+    if (!lines.length) {
+      showAlert('bulk-err', 'File is empty');
+      return;
+    }
+   
+    // Parse CSV (simple parser - handles basic quoted values)
+    const parseCSVLine = (line) => {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+     
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+   
+    const rows = lines.map(parseCSVLine);
+   
+    // Skip header if detected
+    if (rows[0].some(cell => cell.toLowerCase().includes('name') || cell.toLowerCase().includes('mobile'))) {
+      rows.shift();
+    }
+   
+    // Convert to student objects
+    const students = rows.filter(r => r[0] && r[1]).map(r => ({
+      name: r[0],
+      mobile: r[1],
+      college_type: (r[2] && ['PU', 'Diploma', 'Other'].includes(r[2])) ? r[2] : 'Other',
+      present_college: r[3] || '',
+      address: r[4] || ''
+    }));
+   
+    if (!students.length) {
+      showAlert('bulk-err', 'No valid student data found. Check CSV format.');
+      return;
+    }
+   
+    const btn = document.getElementById('bulk-upload-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>Uploading...';
+   
+    const res = await fetch(BASE + '/api/students.php?action=bulk_add', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({students})
+    });
+   
+    const result = await res.json();
+   
+    if (result.success) {
+      showAlert('bulk-ok', `✅ Successfully uploaded ${result.added} students!`);
+      document.getElementById('bulk-file').value = '';
+      btn.disabled = true;
+      btn.innerHTML = '📤 Upload Students';
+      setTimeout(() => {
+        showPage('students');
+      }, 2000);
+    } else {
+      showAlert('bulk-err', result.error || 'Upload failed');
+      btn.disabled = false;
+      btn.innerHTML = '📤 Upload Students';
+    }
+  } catch(e) {
+    console.error(e);
+    showAlert('bulk-err', 'Error: ' + e.message);
+    document.getElementById('bulk-upload-btn').disabled = false;
+    document.getElementById('bulk-upload-btn').innerHTML = '📤 Upload Students';
+  }
+}
+
+async function addUser() {
+  hideAlert('add-user-err');
+  const data = {
+    name: document.getElementById('u-name').value.trim(),
+    email: document.getElementById('u-email').value.trim(),
+    phone: document.getElementById('u-phone').value.trim(),
+    role: document.getElementById('u-role').value,
+    gender: document.getElementById('u-gender').value,
+    dob: document.getElementById('u-dob').value
+  };
+  if (!data.name || !data.email || !data.phone || !data.dob) {
+    showAlert('add-user-err', 'All fields required');
+    return;
+  }
+  try {
+    const res = await fetch(BASE + '/api/users.php?action=add', {
+      method:'POST',
+      credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (result.success) {
+      document.getElementById('gen-pass').textContent = result.system_password || '';
+      document.getElementById('pass-reveal').style.display = 'block';
+      loadUsers();
+    } else {
+      showAlert('add-user-err', result.error || 'Failed');
+    }
+  } catch(e) {
+    console.error(e);
+    showAlert('add-user-err', 'Server error');
+  }
+}
+
+function switchStudentTab(tab, el) {
+  console.log("switchStudentTab called with:", tab);
+  
+  // Remove active from all tabs
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+ 
+  // Add active to clicked one
+  if (el) el.classList.add('active');
+  
+  const singleTab = document.getElementById('student-tab-single');
+  const bulkTab = document.getElementById('student-tab-bulk');
+  
+  if (!singleTab || !bulkTab) {
+    console.error("Tab contents missing! single:", !!singleTab, "bulk:", !!bulkTab);
+    return;
+  }
+  
+  // Hide both first
+  singleTab.style.display = 'none';
+  bulkTab.style.display = 'none';
+  
+  // Show selected
+  if (tab === 'single') {
+    singleTab.style.display = 'block';
+  } else if (tab === 'bulk') {
+    bulkTab.style.display = 'block';
+    console.log("Bulk tab should now be visible");
+    
+    // Clear any stale messages
+    hideAlert('bulk-err');
+    hideAlert('bulk-ok');
+    const errEl = document.getElementById('bulk-err');
+    if (errEl) {
+      errEl.textContent = '';
+      errEl.classList.remove('show');
+    }
+  }
+}
+
+function exportExcel() {
+  window.location.href = BASE + '/api/students.php?action=export';
+}
+
+async function deleteUser(id, name) {
+  if (!confirm(`Delete user ${name}? This action cannot be undone.`)) return;
+  try {
+    const res = await fetch(BASE + `/api/users.php?action=delete&id=${id}`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    const result = await res.json();
+    if (result.success) {
+      showAlert('add-user-err', `✅ User ${name} deleted`);
+      loadUsers();
+    } else {
+      showAlert('add-user-err', result.error || 'Delete failed');
+    }
+  } catch(e) {
+    console.error(e);
+    showAlert('add-user-err', 'Server error during delete');
+  }
+}
+
+// Hide unknown action alerts on page load
+document.addEventListener('DOMContentLoaded', () => {
+  // Load dashboard by default
+  loadDashboard();
+  
+  // Hide any unknown action alerts
+  const alerts = document.querySelectorAll('.alert.alert-err, .alert');
+  alerts.forEach(alert => {
+    if (alert.textContent.trim() === 'Unknown action' || alert.textContent.includes('Unknown action')) {
+      alert.style.display = 'none';
+      alert.classList.remove('show');
+    }
+  });
+});
 </script>
 </body>
 </html>
