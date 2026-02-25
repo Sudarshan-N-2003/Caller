@@ -700,7 +700,7 @@ async function addUser() {
     return;
   }
   try {
-    const res = await fetch(BASE + '/api/users.php?action=add', {
+  const res = await fetch(BASE + '/api/users.php?action=add', {
       method:'POST',
       credentials:'include',
       headers:{'Content-Type':'application/json'},
