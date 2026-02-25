@@ -20,6 +20,44 @@ $adminName = $_SESSION['name'] ?? 'Admin';
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 
 <style>
+    .alert {
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  display: none;
+}
+
+.alert.show {
+  display: block;
+}
+
+.alert-err {
+  background-color: #fee;
+  color: #c00;
+  border: 1px solid #fcc;
+}
+
+.alert-success {
+  background-color: #efe;
+  color: #0a0;
+  border: 1px solid #cfc;
+}
+
+.spin {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 .tab-nav{display:flex;border-bottom:1px solid var(--border)}
 .tab{padding:.75rem 1.2rem;cursor:pointer;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;transition:.2s}
 .tab:hover{color:var(--text)}
@@ -247,6 +285,8 @@ select.form-input option{background:#0d1525}
         <button class="btn btn-outline btn-sm" onclick="downloadTemplate()" style="margin-bottom:1rem">⬇️ Download Template</button>
         <input type="file" id="bulk-file" accept=".csv" style="display:block;margin-bottom:1rem" onchange="previewBulkFile()">
         <button class="btn btn-success" id="bulk-upload-btn" onclick="uploadBulk()">📤 Upload Students</button>
+        <div id="bulk-err" class="alert alert-err"></div>
+        <div id="bulk-ok" class="alert alert-success"></div>      
       </div>
     </div>
   </div>
@@ -684,8 +724,18 @@ async function uploadBulk() {
     return;
   }
  
-  hideAlert('bulk-err');
-  hideAlert('bulk-ok');
+  // Hide any existing alerts
+  const errEl = document.getElementById('bulk-err');
+  const okEl = document.getElementById('bulk-ok');
+  
+  if (errEl) {
+    errEl.textContent = '';
+    errEl.classList.remove('show');
+  }
+  if (okEl) {
+    okEl.textContent = '';
+    okEl.classList.remove('show');
+  }
  
   try {
     const text = await file.text();
@@ -720,7 +770,11 @@ async function uploadBulk() {
     const rows = lines.map(parseCSVLine);
    
     // Skip header if detected
-    if (rows[0].some(cell => cell.toLowerCase().includes('name') || cell.toLowerCase().includes('mobile'))) {
+    if (rows.length > 0 && rows[0].some(cell => 
+      cell.toLowerCase().includes('name') || 
+      cell.toLowerCase().includes('mobile') ||
+      cell.toLowerCase().includes('college')
+    )) {
       rows.shift();
     }
    
@@ -740,7 +794,7 @@ async function uploadBulk() {
    
     const btn = document.getElementById('bulk-upload-btn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spin"></span>Uploading...';
+    btn.innerHTML = '<span class="spin"></span> Uploading...';
    
     const res = await fetch(BASE + '/api/students.php?action=bulk_add', {
       method: 'POST',
@@ -749,13 +803,41 @@ async function uploadBulk() {
       body: JSON.stringify({students})
     });
    
+    // Check if response is OK
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("Server error:", errorText);
+      throw new Error(`Server returned ${res.status}: ${errorText.substring(0, 100)}`);
+    }
+    
     const result = await res.json();
    
     if (result.success) {
-      showAlert('bulk-ok', `✅ Successfully uploaded ${result.added} students!`);
+      // Clear any error messages first
+      if (errEl) {
+        errEl.textContent = '';
+        errEl.classList.remove('show');
+      }
+      
+      // Show success message
+      if (okEl) {
+        okEl.textContent = `✅ Successfully uploaded ${result.added} students!`;
+        okEl.classList.add('show');
+        
+        // Auto hide after 5 seconds
+        setTimeout(() => {
+          okEl.classList.remove('show');
+        }, 5000);
+      }
+      
+      // Clear file input
       document.getElementById('bulk-file').value = '';
-      btn.disabled = true;
+      
+      // Reset button
+      btn.disabled = true; // Keep disabled since no file selected
       btn.innerHTML = '📤 Upload Students';
+      
+      // Optionally redirect to students page after success
       setTimeout(() => {
         showPage('students');
       }, 2000);
@@ -765,10 +847,103 @@ async function uploadBulk() {
       btn.innerHTML = '📤 Upload Students';
     }
   } catch(e) {
-    console.error(e);
-    showAlert('bulk-err', 'Error: ' + e.message);
-    document.getElementById('bulk-upload-btn').disabled = false;
-    document.getElementById('bulk-upload-btn').innerHTML = '📤 Upload Students';
+    console.error('Upload error:', e);
+    
+    // Show error message
+    if (errEl) {
+      errEl.textContent = 'Error: ' + e.message;
+      errEl.classList.add('show');
+      
+      // Auto hide after 5 seconds
+      setTimeout(() => {
+        errEl.classList.remove('show');
+      }, 5000);
+    }
+    
+    // Reset button
+    const btn = document.getElementById('bulk-upload-btn');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '📤 Upload Students';
+    }
+  }
+}
+
+// Also update the showAlert function to handle both success and error alerts better
+function showAlert(id, msg) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.textContent = msg;
+    el.classList.add('show');
+    
+    // Don't auto-hide error messages? Or keep auto-hide?
+    // You can adjust the timeout as needed
+    setTimeout(() => {
+      el.classList.remove('show');
+      // Clear the text after hiding
+      setTimeout(() => {
+        if (el.textContent === msg) {
+          el.textContent = '';
+        }
+      }, 300);
+    }, 5000);
+  } else {
+    console.warn(`Alert element #${id} not found`);
+  }
+}
+
+// Add this function to clear all alerts
+function clearAllAlerts() {
+  const alerts = document.querySelectorAll('.alert');
+  alerts.forEach(alert => {
+    alert.textContent = '';
+    alert.classList.remove('show');
+  });
+}
+
+// Update switchStudentTab to clear alerts properly
+function switchStudentTab(tab, el) {
+  console.log("switchStudentTab called with:", tab);
+  
+  // Remove active from all tabs
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+ 
+  // Add active to clicked one
+  if (el) el.classList.add('active');
+  
+  const singleTab = document.getElementById('student-tab-single');
+  const bulkTab = document.getElementById('student-tab-bulk');
+  
+  if (!singleTab || !bulkTab) {
+    console.error("Tab contents missing! single:", !!singleTab, "bulk:", !!bulkTab);
+    return;
+  }
+  
+  // Hide both first
+  singleTab.style.display = 'none';
+  bulkTab.style.display = 'none';
+  
+  // Show selected
+  if (tab === 'single') {
+    singleTab.style.display = 'block';
+  } else if (tab === 'bulk') {
+    bulkTab.style.display = 'block';
+    console.log("Bulk tab should now be visible");
+    
+    // Clear all alerts when switching to bulk tab
+    clearAllAlerts();
+    
+    // Reset file input and button
+    const fileInput = document.getElementById('bulk-file');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+    
+    const uploadBtn = document.getElementById('bulk-upload-btn');
+    if (uploadBtn) {
+      uploadBtn.disabled = true;
+      uploadBtn.innerHTML = '📤 Upload Students';
+    }
   }
 }
 
