@@ -813,22 +813,38 @@ async function addUser() {
 }
 
 function switchStudentTab(tab, el) {
-  const tabs = document.querySelectorAll('#page-add-student .tab');
-  tabs.forEach(t => t.classList.remove('active'));
+  console.log("switchStudentTab called with:", tab); // ← will show in console when you click tab
 
+  // Remove active from all
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  
+  // Add to clicked one
   if (el) el.classList.add('active');
 
-  const single = document.getElementById('student-tab-single');
-  const bulk = document.getElementById('student-tab-bulk');
+  const singleTab = document.getElementById('student-tab-single');
+  const bulkTab   = document.getElementById('student-tab-bulk');
 
-  if (!single || !bulk) return;
+  if (!singleTab || !bulkTab) {
+    console.error("Tab contents missing! single:", !!singleTab, "bulk:", !!bulkTab);
+    return;
+  }
 
+  // Hide both first
+  singleTab.style.display = 'none';
+  bulkTab.style.display   = 'none';
+
+  // Show selected
   if (tab === 'single') {
-    single.style.display = 'block';
-    bulk.style.display = 'none';
-  } else {
-    single.style.display = 'none';
-    bulk.style.display = 'block';
+    singleTab.style.display = 'block';
+  } else if (tab === 'bulk') {
+    bulkTab.style.display = 'block';
+    console.log("Bulk tab should now be visible");
+    // Clear any stale messages
+    const err = document.getElementById('bulk-err');
+    if (err) {
+      err.textContent = '';
+      err.classList.remove('show');
+    }
   }
 }
 function exportExcel() {
