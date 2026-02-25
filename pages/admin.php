@@ -313,7 +313,16 @@ select.form-input option{background:#0d1525}
     </div>
     <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>DOB</th></tr></thead>
+        <thead>
+  <tr>
+    <th>#</th>
+    <th>Name</th>
+    <th>Email</th>
+    <th>Phone</th>
+    <th>Role</th>
+    <th>Actions</th>           
+  </tr>
+</thead>
         <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">Loading...</td></tr></tbody>
       </table>
     </div>
@@ -477,28 +486,40 @@ async function loadStudents() {
 async function viewStudentDetail(id) {
   const modal = document.getElementById('student-modal');
   const body = document.getElementById('student-detail-body');
+
   body.innerHTML = '<p style="color:var(--muted)">⏳ Loading student details...</p>';
   modal.classList.add('show');
-  
+
   try {
     const res = await fetch(BASE + `/api/students.php?action=detail&id=${id}`, {credentials:'include'});
-    const student = await res.json();
     
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const student = await res.json();
+
     if (student.error) {
       body.innerHTML = `<p style="color:var(--danger)">❌ ${esc(student.error)}</p>`;
       return;
     }
-    
+
+    if (!student || !student.id) {
+      body.innerHTML = `<p style="color:var(--warn)">⚠️ Student not found or invalid response</p>`;
+      return;
+    }
+
     body.innerHTML = `
-      <div class="detail-row"><div class="detail-label">Name</div><div class="detail-value"><strong>${esc(student.name)}</strong></div></div>
-      <div class="detail-row"><div class="detail-label">Mobile</div><div class="detail-value"><a href="tel:${esc(student.mobile)}" style="color:var(--accent)">${esc(student.mobile)}</a></div></div>
-      <div class="detail-row"><div class="detail-label">College Type</div><div class="detail-value">${statusBadge(student.college_type)}</div></div>
-      <div class="detail-row"><div class="detail-label">Present College</div><div class="detail-value">${esc(student.present_college||'—')}</div></div>
-      <div class="detail-row"><div class="detail-label">Address</div><div class="detail-value">${esc(student.address||'—')}</div></div>
+      <div class="detail-row"><div class="detail-label">Name</div><div class="detail-value"><strong>${esc(student.name || '—')}</strong></div></div>
+      <div class="detail-row"><div class="detail-label">Mobile</div><div class="detail-value"><a href="tel:${esc(student.mobile||'')}" style="color:var(--accent)">${esc(student.mobile || '—')}</a></div></div>
+      <div class="detail-row"><div class="detail-label">College Type</div><div class="detail-value">${esc(student.college_type || '—')}</div></div>
+      <div class="detail-row"><div class="detail-label">Present College</div><div class="detail-value">${esc(student.present_college || '—')}</div></div>
+      <div class="detail-row"><div class="detail-label">Address</div><div class="detail-value">${esc(student.address || '—')}</div></div>
       <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value">${statusBadge(student.status)}</div></div>
-      <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value">${esc(student.assigned_name||'<span class="badge badge-gray">Unassigned</span>')}</div></div>
-      <div class="detail-row"><div class="detail-label">Created</div><div class="detail-value">${esc(student.created_at||'—')}</div></div>
+      <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value">${esc(student.assigned_name || '<span class="badge badge-gray">Unassigned</span>')}</div></div>
+      <div class="detail-row"><div class="detail-label">Created</div><div class="detail-value">${esc(student.created_at || '—')}</div></div>
     `;
+
   } catch(e) {
     console.error(e);
     body.innerHTML = '<p style="color:var(--danger)">❌ Failed to load student details</p>';
@@ -512,20 +533,28 @@ function closeModal() {
 async function loadUsers() {
   const tbody = document.getElementById('users-tbody');
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">⏳ Loading...</td></tr>';
+
   try {
     const data = await fetch(BASE + '/api/users.php?action=list', {credentials:'include'}).then(r=>r.json());
-    if (!data||!data.length) {
+
+    if (!data || !data.length) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">No users</td></tr>';
       return;
     }
-    tbody.innerHTML = data.map((u,i) => `<tr>
-      <td>${i+1}</td>
-      <td>${esc(u.name)}</td>
-      <td>${esc(u.email)}</td>
-      <td>${esc(u.phone)}</td>
-      <td>${roleBadge(u.role)}</td>
-      <td>${esc(u.dob||'—')}</td>
-    </tr>`).join('');
+
+    tbody.innerHTML = data.map((u,i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td>${esc(u.name)}</td>
+        <td>${esc(u.email)}</td>
+        <td>${esc(u.phone)}</td>
+        <td>${roleBadge(u.role)}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${esc(u.name)}')">🗑 Delete</button>
+        </td>
+      </tr>
+    `).join('');
+
   } catch(e) {
     console.error(e);
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--danger)">❌ Load failed</td></tr>';
@@ -732,6 +761,29 @@ function exportExcel() {
 }
 
 loadDashboard();
+
+    async function deleteUser(id, name) {
+  if (!confirm(`Delete user ${name}? This action cannot be undone.`)) return;
+
+  try {
+    const res = await fetch(BASE + `/api/users.php?action=delete&id=${id}`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      showAlert('add-user-err', `✅ User ${name} deleted`, true); // reuse alert but make it green
+      loadUsers();
+    } else {
+      showAlert('add-user-err', result.error || 'Delete failed');
+    }
+  } catch(e) {
+    console.error(e);
+    showAlert('add-user-err', 'Server error during delete');
+  }
+}
 </script>
 </body>
 </html>
