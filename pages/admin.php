@@ -246,7 +246,7 @@ select.form-input option{background:#0d1525}
         <p style="margin-bottom:1rem;color:var(--muted);font-size:.85rem">CSV columns: Name, Mobile, College Type, Present College, Address</p>
         <button class="btn btn-outline btn-sm" onclick="downloadTemplate()" style="margin-bottom:1rem">⬇️ Download Template</button>
         <input type="file" id="bulk-file" accept=".csv" style="display:block;margin-bottom:1rem" onchange="previewBulkFile()">
-        <button class="btn btn-success" id="bulk-upload-btn" onclick="uploadBulk()" disabled>📤 Upload Students</button>
+        <button class="btn btn-success" id="bulk-upload-btn" onclick="uploadBulk()">📤 Upload Students</button>
       </div>
     </div>
   </div>
@@ -658,8 +658,28 @@ function downloadTemplate() {
 }
 
 function previewBulkFile() {
-  const file = document.getElementById('bulk-file').files[0];
-  document.getElementById('bulk-upload-btn').disabled = !file || !file.name.endsWith('.csv');
+  console.log("previewBulkFile() was called");
+
+  const input = document.getElementById('bulk-file');
+  const btn = document.getElementById('bulk-upload-btn');
+
+  if (!input) {
+    console.error("File input #bulk-file not found in DOM");
+    return;
+  }
+
+  const file = input.files[0];
+  console.log("Selected file:", file ? file.name : "no file");
+
+  if (!btn) {
+    console.error("Button #bulk-upload-btn not found");
+    return;
+  }
+
+  const shouldEnable = file && file.name.toLowerCase().endsWith('.csv');
+  btn.disabled = !shouldEnable;
+
+  console.log("Button enabled?", shouldEnable);
 }
 
 async function uploadBulk() {
