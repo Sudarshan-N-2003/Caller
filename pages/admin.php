@@ -746,7 +746,7 @@ async function uploadBulk() {
       return;
     }
    
-    // Parse CSV (simple parser - handles basic quoted values)
+    // Parse CSV
     const parseCSVLine = (line) => {
       const result = [];
       let current = '';
@@ -772,8 +772,7 @@ async function uploadBulk() {
     // Skip header if detected
     if (rows.length > 0 && rows[0].some(cell => 
       cell.toLowerCase().includes('name') || 
-      cell.toLowerCase().includes('mobile') ||
-      cell.toLowerCase().includes('college')
+      cell.toLowerCase().includes('mobile')
     )) {
       rows.shift();
     }
@@ -796,71 +795,60 @@ async function uploadBulk() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spin"></span> Uploading...';
     
-    // Try different action names
-    const possibleActions = ['bulk_add', 'bulk-import', 'import', 'bulk', 'upload'];
-    let success = false;
-    let result = null;
-    
-    for (const action of possibleActions) {
-      try {
-        console.log(`Trying action: ${action}`);
-        const res = await fetch(BASE + `/api/students.php?action=${action}`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({students})
-        });
-        
-        const responseText = await res.text();
-        console.log(`Response for ${action}:`, responseText);
-        
-        if (res.ok) {
-          try {
-            result = JSON.parse(responseText);
-            if (result.success) {
-              success = true;
-              break;
-            }
-          } catch (e) {
-            console.log(`Not JSON response for ${action}`);
+    // METHOD 1: Try using the same endpoint as single add but with multiple students
+    try {
+      console.log('Attempting to add multiple students one by one...');
+      let successCount = 0;
+      let errorCount = 0;
+      
+      // Add students one by one using the working 'add' action
+      for (const student of students) {
+        try {
+          const res = await fetch(BASE + '/api/students.php?action=add', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(student)
+          });
+          
+          const result = await res.json();
+          if (result.success) {
+            successCount++;
+          } else {
+            errorCount++;
           }
+        } catch (e) {
+          errorCount++;
+          console.error('Error adding student:', e);
         }
-      } catch (e) {
-        console.log(`Error with ${action}:`, e);
-      }
-    }
-    
-    if (success && result) {
-      // Clear any error messages first
-      if (errEl) {
-        errEl.textContent = '';
-        errEl.classList.remove('show');
       }
       
-      // Show success message
-      if (okEl) {
-        okEl.textContent = `✅ Successfully uploaded ${result.added || students.length} students!`;
-        okEl.classList.add('show');
+      if (successCount > 0) {
+        if (okEl) {
+          okEl.textContent = `✅ Successfully uploaded ${successCount} students! ${errorCount > 0 ? `Failed: ${errorCount}` : ''}`;
+          okEl.classList.add('show');
+          
+          setTimeout(() => {
+            okEl.classList.remove('show');
+          }, 5000);
+        }
         
-        // Auto hide after 5 seconds
+        document.getElementById('bulk-file').value = '';
+        btn.disabled = true;
+        btn.innerHTML = '📤 Upload Students';
+        
         setTimeout(() => {
-          okEl.classList.remove('show');
-        }, 5000);
+          showPage('students');
+        }, 2000);
+      } else {
+        showAlert('bulk-err', 'Failed to upload any students');
+        btn.disabled = false;
+        btn.innerHTML = '📤 Upload Students';
       }
       
-      // Clear file input
-      document.getElementById('bulk-file').value = '';
-      
-      // Reset button
-      btn.disabled = true;
-      btn.innerHTML = '📤 Upload Students';
-      
-      // Redirect to students page after success
-      setTimeout(() => {
-        showPage('students');
-      }, 2000);
-    } else {
-      showAlert('bulk-err', 'Upload failed: Unknown action. Please check API endpoint.');
+    } catch (error) {
+      console.error('Upload error:', error);
+      showAlert('bulk-err', 'Error: ' + error.message);
       btn.disabled = false;
       btn.innerHTML = '📤 Upload Students';
     }
@@ -868,7 +856,6 @@ async function uploadBulk() {
   } catch(e) {
     console.error('Upload error:', e);
     
-    // Show error message
     if (errEl) {
       errEl.textContent = 'Error: ' + e.message;
       errEl.classList.add('show');
@@ -878,7 +865,6 @@ async function uploadBulk() {
       }, 5000);
     }
     
-    // Reset button
     const btn = document.getElementById('bulk-upload-btn');
     if (btn) {
       btn.disabled = false;
@@ -1104,8 +1090,58 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 }
 
-// Call this from browser console to debug:
-// debugAvailableActions()
+// Add this function to debug available actions
+async function checkAvailableActions() {
+  console.log('🔍 Checking available API actions...');
+  
+  // Common action names to test
+  const actionsToTest = [
+    'list',
+    'add',
+    'bulk_add',
+    'bulk',
+    'import',
+    'upload',
+    'bulk-import',
+    'bulk_upload',
+    'import-csv',
+    'csv-import',
+    'mass_add',
+    'mass-import'
+  ];
+  
+  const results = [];
+  
+  for (const action of actionsToTest) {
+    try {
+      console.log(`Testing: ${action}...`);
+      const res = await fetch(BASE + `/api/students.php?action=${action}`, {
+        method: 'POST', // Try POST
+        credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({test: true})
+      });
+      
+      const text = await res.text();
+      console.log(`${action} (${res.status}):`, text.substring(0, 100));
+      
+      results.push({
+        action,
+        status: res.status,
+        response: text.substring(0, 100)
+      });
+      
+    } catch (e) {
+      console.log(`${action}: Error - ${e.message}`);
+    }
+  }
+  
+  console.log('📊 Summary of available actions:');
+  console.table(results.filter(r => r.status !== 404 && r.status !== 400));
+  
+  return results;
+}
+
 </script>
 </body>
 </html>
