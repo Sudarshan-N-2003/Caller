@@ -813,12 +813,24 @@ async function addUser() {
 }
 
 function switchStudentTab(tab, el) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('student-tab-single').style.display = tab==='single' ? 'block' : 'none';
-  document.getElementById('student-tab-bulk').style.display = tab==='bulk' ? 'block' : 'none';
-}
+  const tabs = document.querySelectorAll('#page-add-student .tab');
+  tabs.forEach(t => t.classList.remove('active'));
 
+  if (el) el.classList.add('active');
+
+  const single = document.getElementById('student-tab-single');
+  const bulk = document.getElementById('student-tab-bulk');
+
+  if (!single || !bulk) return;
+
+  if (tab === 'single') {
+    single.style.display = 'block';
+    bulk.style.display = 'none';
+  } else {
+    single.style.display = 'none';
+    bulk.style.display = 'block';
+  }
+}
 function exportExcel() {
   window.location.href = BASE + '/api/students.php?action=export';
 }
