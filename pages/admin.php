@@ -461,25 +461,37 @@ async function loadDashboard() {
 async function loadStudents() {
   const tbody = document.getElementById('students-tbody');
   tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">⏳ Loading...</td></tr>';
+
   try {
-    const data = await fetch(BASE + '/api/students.php?action=list', {credentials:'include'}).then(r=>r.json());
-    if (!data||!data.length) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">No students</td></tr>';
+    const data = await fetch(BASE + '/api/students.php?action=list', {credentials:'include'}).then(r => r.json());
+
+    if (!data || !data.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">No students found</td></tr>';
       return;
     }
-    tbody.innerHTML = data.map((s,i) => `<tr>
-      <td>${i+1}</td>
-      <td><strong>${esc(s.name)}</strong></td>
-      <td><a href="tel:${esc(s.mobile)}" style="color:var(--accent)">${esc(s.mobile)}</a></td>
-      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc(s.present_college||'—')}</td>
-      <td>${esc(s.college_type||'—')}</td>
-      <td>${esc(s.assigned_name||'<span class="badge badge-gray">Unassigned</span>')}</td>
-      <td>${statusBadge(s.status)}</td>
-      <td><button class="btn btn-outline btn-sm" onclick="viewStudentDetail(${s.id})">👁 View</button></td>
-    </tr>`).join('');
+
+    tbody.innerHTML = data.map((s, i) => {
+      let assignedDisplay = s.assigned_name 
+        ? esc(s.assigned_name) 
+        : '<span class="badge badge-gray">Unassigned</span>';
+
+      return `
+        <tr>
+          <td>${i+1}</td>
+          <td><strong>${esc(s.name || '—')}</strong></td>
+          <td><a href="tel:${esc(s.mobile || '')}" style="color:var(--accent)">${esc(s.mobile || '—')}</a></td>
+          <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc(s.present_college || '—')}</td>
+          <td>${esc(s.college_type || '—')}</td>
+          <td>${assignedDisplay}</td>
+          <td>${statusBadge(s.status)}</td>
+          <td><button class="btn btn-outline btn-sm" onclick="viewStudentDetail(${s.id})">👁 View</button></td>
+        </tr>
+      `;
+    }).join('');
+
   } catch(e) {
     console.error(e);
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--danger)">❌ Load failed</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--danger)">❌ Failed to load students</td></tr>';
   }
 }
 
@@ -509,17 +521,48 @@ async function viewStudentDetail(id) {
       return;
     }
 
-    body.innerHTML = `
-      <div class="detail-row"><div class="detail-label">Name</div><div class="detail-value"><strong>${esc(student.name || '—')}</strong></div></div>
-      <div class="detail-row"><div class="detail-label">Mobile</div><div class="detail-value"><a href="tel:${esc(student.mobile||'')}" style="color:var(--accent)">${esc(student.mobile || '—')}</a></div></div>
-      <div class="detail-row"><div class="detail-label">College Type</div><div class="detail-value">${esc(student.college_type || '—')}</div></div>
-      <div class="detail-row"><div class="detail-label">Present College</div><div class="detail-value">${esc(student.present_college || '—')}</div></div>
-      <div class="detail-row"><div class="detail-label">Address</div><div class="detail-value">${esc(student.address || '—')}</div></div>
-      <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value">${statusBadge(student.status)}</div></div>
-      <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value">${esc(student.assigned_name || '<span class="badge badge-gray">Unassigned</span>')}</div></div>
-      <div class="detail-row"><div class="detail-label">Created</div><div class="detail-value">${esc(student.created_at || '—')}</div></div>
-    `;
-
+body.innerHTML = `
+  <div class="detail-row">
+    <div class="detail-label">Name</div>
+    <div class="detail-value"><strong>${esc(student?.name || '—')}</strong></div>
+  </div>
+  <div class="detail-row">
+    <div class="detail-label">Mobile</div>
+    <div class="detail-value">
+      ${student?.mobile 
+        ? `<a href="tel:${esc(student.mobile)}" style="color:var(--accent)">${esc(student.mobile)}</a>`
+        : '—'}
+    </div>
+  </div>
+  <div class="detail-row">
+    <div class="detail-label">College Type</div>
+    <div class="detail-value">${esc(student?.college_type || '—')}</div>
+  </div>
+  <div class="detail-row">
+    <div class="detail-label">Present College</div>
+    <div class="detail-value">${esc(student?.present_college || '—')}</div>
+  </div>
+  <div class="detail-row">
+    <div class="detail-label">Address</div>
+    <div class="detail-value">${esc(student?.address || '—')}</div>
+  </div>
+  <div class="detail-row">
+    <div class="detail-label">Status</div>
+    <div class="detail-value">${statusBadge(student?.status)}</div>
+  </div>
+  <div class="detail-row">
+    <div class="detail-label">Assigned To</div>
+    <div class="detail-value">
+      ${student?.assigned_name 
+        ? esc(student.assigned_name) 
+        : '<span class="badge badge-gray">Unassigned</span>'}
+    </div>
+  </div>
+  <div class="detail-row">
+    <div class="detail-label">Created</div>
+    <div class="detail-value">${esc(student?.created_at || '—')}</div>
+  </div>
+`;
   } catch(e) {
     console.error(e);
     body.innerHTML = '<p style="color:var(--danger)">❌ Failed to load student details</p>';
@@ -782,6 +825,32 @@ loadDashboard();
   } catch(e) {
     console.error(e);
     showAlert('add-user-err', 'Server error during delete');
+  }
+}
+    // Hide unknown action alerts on page load / tab switch – temporary safeguard
+document.addEventListener('DOMContentLoaded', () => {
+  const alerts = document.querySelectorAll('.alert.alert-err, .alert');
+  alerts.forEach(alert => {
+    if (alert.textContent.trim() === 'Unknown action' || alert.textContent.includes('Unknown action')) {
+      alert.style.display = 'none';
+      alert.classList.remove('show');
+    }
+  });
+});
+
+// Also hide when switching to bulk tab
+function switchStudentTab(tab, el) {
+  // ... your existing code ...
+  
+  if (tab === 'bulk') {
+    hideAlert('bulk-err');
+    hideAlert('bulk-ok');
+    // Force-clear any stale message
+    const errEl = document.getElementById('bulk-err');
+    if (errEl) {
+      errEl.textContent = '';
+      errEl.classList.remove('show');
+    }
   }
 }
 </script>
