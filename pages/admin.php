@@ -298,6 +298,12 @@ select.form-input option{background:#0d1525}
       <input class="search-input" id="student-search" placeholder="🔍 Search..." oninput="loadStudents()">
       <button class="btn btn-outline btn-sm" onclick="loadStudents()">🔄</button>
     </div>
+      <div style="margin-bottom: 1.5rem;">
+  <button class="btn btn-success" onclick="autoAssignAll()" id="auto-assign-btn">
+    🔄 Auto-Assign All Unassigned Students
+  </button>
+  <span id="auto-assign-result" style="margin-left: 1rem; display: none;"></span>
+</div>
     <div style="overflow-x:auto">
       <table>
         <thead><tr><th>#</th><th>Name</th><th>Mobile</th><th>College</th><th>Type</th><th>Assigned</th><th>Status</th><th>Actions</th></tr></thead>
@@ -497,7 +503,45 @@ async function loadDashboard() {
     grid.innerHTML = '<div style="color:var(--danger);padding:2rem">❌ Load failed</div>';
   }
 }
-
+async function autoAssignAll() {
+  const btn = document.getElementById('auto-assign-btn');
+  const result = document.getElementById('auto-assign-result');
+  
+  if (!confirm('Auto-assign all unassigned students to telecallers?')) return;
+  
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Assigning...';
+  result.style.display = 'none';
+  
+  try {
+    const res = await fetch(BASE + '/api/students.php?action=auto_assign', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    
+    const data = await res.json();
+    
+    if (data.success) {
+      result.textContent = `✅ Assigned ${data.assigned} students!`;
+      result.style.display = 'inline';
+      result.style.color = 'var(--success)';
+      loadDashboard();
+      loadStudents();
+      setTimeout(() => result.style.display = 'none', 5000);
+    } else {
+      result.textContent = `❌ ${data.error}`;
+      result.style.display = 'inline';
+      result.style.color = 'var(--danger)';
+    }
+  } catch(e) {
+    result.textContent = '❌ Server error';
+    result.style.display = 'inline';
+    result.style.color = 'var(--danger)';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔄 Auto-Assign All Unassigned Students';
+  }
+}
 async function loadStudents() {
   const tbody = document.getElementById('students-tbody');
   tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">⏳ Loading...</td></tr>';
